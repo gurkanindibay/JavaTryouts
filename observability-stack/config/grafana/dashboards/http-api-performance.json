@@ -1,0 +1,169 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "HTTP & API Performance",
+    "tags": ["http", "api", "performance", "collections-challenge"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "HTTP Request Rate by Endpoint",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "sum by(uri, method) (rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\"}[5m]))",
+            "legendFormat": "{{method}} {{uri}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/sec", "min": 0},
+          {"show": false}
+        ],
+        "legend": {"show": true, "alignAsTable": true, "rightSide": false}
+      },
+      {
+        "id": 2,
+        "title": "HTTP Response Status Codes",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "sum by(status) (rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\"}[5m]))",
+            "legendFormat": "{{status}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/sec", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 3,
+        "title": "HTTP Response Time Percentiles",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=\"collections-kafka-challenge\"}[5m])) by (le))",
+            "legendFormat": "50th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.75, sum(rate(http_server_requests_seconds_bucket{application=\"collections-kafka-challenge\"}[5m])) by (le))",
+            "legendFormat": "75th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"collections-kafka-challenge\"}[5m])) by (le))",
+            "legendFormat": "95th percentile"
+          },
+          {
+            "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{application=\"collections-kafka-challenge\"}[5m])) by (le))",
+            "legendFormat": "99th percentile"
+          }
+        ],
+        "yAxes": [
+          {"label": "Response Time", "unit": "s", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Response Time by Endpoint",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"collections-kafka-challenge\"}[5m])) by (le, uri, method))",
+            "legendFormat": "{{method}} {{uri}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "95th Percentile (s)", "unit": "s", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Error Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "sum(rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\", status=~\"4..|5..\"}[5m])) / sum(rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\"}[5m])) * 100",
+            "legendFormat": "Error Rate %"
+          }
+        ],
+        "yAxes": [
+          {"label": "Error Rate (%)", "unit": "percent", "min": 0, "max": 100},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Active HTTP Requests",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "http_server_requests_active_seconds_active_count{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Active Requests"
+          }
+        ],
+        "yAxes": [
+          {"label": "Active Requests", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Library API Metrics",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "http_requests_total{application=\"collections-kafka-challenge\", controller=\"library\"}",
+            "legendFormat": "Library Requests"
+          },
+          {
+            "expr": "rate(http_request_duration_seconds_count{application=\"collections-kafka-challenge\", controller=\"library\"}[5m])",
+            "legendFormat": "Library Request Rate"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/Rate", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Tomcat Session Metrics",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "tomcat_sessions_active_current_sessions{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Active Sessions"
+          },
+          {
+            "expr": "tomcat_sessions_created_sessions_total{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Created Sessions"
+          },
+          {
+            "expr": "tomcat_sessions_expired_sessions_total{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Expired Sessions"
+          }
+        ],
+        "yAxes": [
+          {"label": "Session Count", "min": 0},
+          {"show": false}
+        ]
+      }
+    ]
+  }
+}

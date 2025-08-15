@@ -37,9 +37,11 @@ scrape_configs:
     scrape_interval: 10s
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: []
-        # Add your Java application endpoints here
-        # Example: ['java-app:8081', 'collections-spring:8080']
+      - targets: ['host.docker.internal:8081']
+        labels:
+          service: 'collections-spring'
+          application: 'collections-kafka-challenge'
+          environment: 'development'
     relabel_configs:
       - source_labels: [__address__]
         target_label: instance

@@ -1,0 +1,235 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Library Business Metrics",
+    "tags": ["business", "library", "books", "collections-challenge"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Books Borrowed",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "books_borrowed_total{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Total Borrowed"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 50},
+                {"color": "red", "value": 100}
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Book Borrow Rate",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+        "targets": [
+          {
+            "expr": "rate(books_borrowed_total{application=\"collections-kafka-challenge\"}[5m]) * 60",
+            "legendFormat": "Borrows/min"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Book Operation Duration",
+        "type": "gauge",
+        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "book_operation_duration_seconds_max{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Max Duration"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s",
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 0.1},
+                {"color": "red", "value": 0.5}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Library API Health",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+        "targets": [
+          {
+            "expr": "http_errors_total{application=\"collections-kafka-challenge\", controller=\"library\"}",
+            "legendFormat": "Errors"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "green", "value": 0},
+                {"color": "yellow", "value": 1},
+                {"color": "red", "value": 5}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Books Borrowed Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "books_borrowed_total{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Total Books Borrowed"
+          },
+          {
+            "expr": "rate(books_borrowed_total{application=\"collections-kafka-challenge\"}[5m]) * 60",
+            "legendFormat": "Borrow Rate (per minute)"
+          }
+        ],
+        "yAxes": [
+          {"label": "Books/Rate", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Book Operation Performance",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(book_operation_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+            "legendFormat": "Operation Rate"
+          },
+          {
+            "expr": "rate(book_operation_duration_seconds_sum{application=\"collections-kafka-challenge\"}[5m]) / rate(book_operation_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+            "legendFormat": "Average Duration"
+          }
+        ],
+        "yAxes": [
+          {"label": "Operations/Duration", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Library API Requests by Endpoint",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "sum by(uri, method) (rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\", uri=~\"/api/books.*\"}[5m]))",
+            "legendFormat": "{{method}} {{uri}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/sec", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Library API Response Times",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, sum(rate(http_server_requests_seconds_bucket{application=\"collections-kafka-challenge\", uri=~\"/api/books.*\"}[5m])) by (le, uri))",
+            "legendFormat": "50th - {{uri}}"
+          },
+          {
+            "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{application=\"collections-kafka-challenge\", uri=~\"/api/books.*\"}[5m])) by (le, uri))",
+            "legendFormat": "95th - {{uri}}"
+          }
+        ],
+        "yAxes": [
+          {"label": "Response Time", "unit": "s", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Library Controller Metrics",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "http_requests_total{application=\"collections-kafka-challenge\", controller=\"library\"}",
+            "legendFormat": "Total Library Requests"
+          },
+          {
+            "expr": "rate(http_request_duration_seconds_count{application=\"collections-kafka-challenge\", controller=\"library\"}[5m])",
+            "legendFormat": "Library Request Rate"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/Rate", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Operational Summary",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "books_borrowed_total{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Books Borrowed",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "rate(books_borrowed_total{application=\"collections-kafka-challenge\"}[1h]) * 3600",
+            "legendFormat": "Hourly Borrow Rate",
+            "format": "table",
+            "instant": true
+          },
+          {
+            "expr": "book_operation_duration_seconds_max{application=\"collections-kafka-challenge\"}",
+            "legendFormat": "Max Operation Time",
+            "format": "table",
+            "instant": true
+          }
+        ]
+      }
+    ]
+  }
+}
