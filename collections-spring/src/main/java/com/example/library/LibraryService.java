@@ -9,14 +9,15 @@ import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class LibraryService {
-    private final List<Book> books = new ArrayList<>();
-    private final Set<Book> uniqueBooks = new HashSet<>();
-    private final Map<Book, Integer> borrowCounts = new HashMap<>();
+    private final BookRepository bookRepository;
 
     @Autowired(required = false)
     private KafkaProducerService kafkaProducerService;
@@ -27,27 +28,29 @@ public class LibraryService {
     private final MeterRegistry meterRegistry;
 
     @Autowired
-    public LibraryService(MeterRegistry meterRegistry) {
+    public LibraryService(BookRepository bookRepository, MeterRegistry meterRegistry) {
+        this.bookRepository = bookRepository;
         this.meterRegistry = meterRegistry;
         
-        // Register business data gauges that derive from actual database/memory state
-        // These don't need persistence since they can be recalculated from business data
-        meterRegistry.gauge("library.books.total", books, List::size);
-        meterRegistry.gauge("library.books.unique", uniqueBooks, Set::size);
+        // Register business data gauges that derive from actual database state
+        meterRegistry.gauge("library.books.total", this, service -> service.bookRepository.count());
+        meterRegistry.gauge("library.books.unique", this, service -> service.bookRepository.count());
     }
 
     @Timed(value = "library.add.book.duration", description = "Time taken to add a book")
     @Counted(value = "library.books.added.total", description = "Total number of books added to the library")
-    public synchronized boolean addBook(Book book) {
-        if (!uniqueBooks.add(book)) {
+    public boolean addBook(Book book) {
+        // Check if book already exists by title (case insensitive)
+        Optional<BookEntity> existingBook = bookRepository.findByTitleIgnoreCase(book.getTitle());
+        if (existingBook.isPresent()) {
             // Record duplicate attempt - this is meaningful observability data
             observabilityMetricsService.recordDuplicateBookAttempt();
             return false; // duplicate
         }
-        books.add(book);
-        borrowCounts.put(book, 0);
         
-        // No need to update persistent metrics - the gauges will automatically reflect current state
+        // Create new BookEntity from Book
+        BookEntity bookEntity = new BookEntity(book.getTitle(), book.getAuthor());
+        bookRepository.save(bookEntity);
         
         // Send Kafka event for book addition (if Kafka is enabled)
         if (kafkaProducerService != null) {
@@ -59,56 +62,55 @@ public class LibraryService {
         return true;
     }
 
-    public synchronized Optional<Book> findByTitle(String title) {
-        return books.stream().filter(b -> b.getTitle().equalsIgnoreCase(title)).findFirst();
+    public Optional<Book> findByTitle(String title) {
+        Optional<BookEntity> bookEntity = bookRepository.findByTitleIgnoreCase(title);
+        return bookEntity.map(entity -> new Book(entity.getTitle(), entity.getAuthor()));
     }
 
-    public synchronized List<Book> listAll() {
-        return Collections.unmodifiableList(new ArrayList<>(books));
+    public List<Book> listAll() {
+        return bookRepository.findAll().stream()
+                .map(entity -> new Book(entity.getTitle(), entity.getAuthor()))
+                .collect(Collectors.toList());
     }
 
     @Timed(value = "library.borrow.duration", description = "Time taken to process book borrow operations")
     @Counted(value = "library.books.borrowed.total", description = "Total number of books borrowed")
-    public synchronized int borrow(String title) {
-        Optional<Book> opt = findByTitle(title);
-        if (opt.isEmpty()) return -1;
-        Book b = opt.get();
-        int count = borrowCounts.getOrDefault(b, 0) + 1;
-        borrowCounts.put(b, count);
+    public int borrow(String title) {
+        Optional<BookEntity> bookEntityOpt = bookRepository.findByTitleIgnoreCase(title);
+        if (bookEntityOpt.isEmpty()) return -1;
         
-        // No need to persist borrow count - this is business data that can be derived from database
+        BookEntity bookEntity = bookEntityOpt.get();
+        int currentCount = bookEntity.getBorrowCount() != null ? bookEntity.getBorrowCount() : 0;
+        int newCount = currentCount + 1;
+        bookEntity.setBorrowCount(newCount);
+        bookRepository.save(bookEntity);
         
         // Send Kafka event for book borrowing (if Kafka is enabled)
         if (kafkaProducerService != null) {
             BorrowEvent borrowEvent = new BorrowEvent("BOOK_BORROWED", 
-                title, count, "user-" + System.currentTimeMillis());
+                title, newCount, "user-" + System.currentTimeMillis());
             kafkaProducerService.sendBorrowEvent(borrowEvent);
         }
         
-        return count;
+        return newCount;
     }
     
-    public synchronized boolean updateBook(String title, Book updatedBook) {
-        Optional<Book> opt = findByTitle(title);
-        if (opt.isEmpty()) return false;
+    public boolean updateBook(String title, Book updatedBook) {
+        Optional<BookEntity> bookEntityOpt = bookRepository.findByTitleIgnoreCase(title);
+        if (bookEntityOpt.isEmpty()) return false;
         
-        Book existingBook = opt.get();
-        int index = books.indexOf(existingBook);
-        
-        // Remove from unique set and add updated book
-        uniqueBooks.remove(existingBook);
-        if (!uniqueBooks.add(updatedBook)) {
-            // Rollback if updated book would create duplicate
-            uniqueBooks.add(existingBook);
-            return false;
+        // Check if the updated title would create a duplicate
+        if (!title.equalsIgnoreCase(updatedBook.getTitle())) {
+            Optional<BookEntity> duplicateCheck = bookRepository.findByTitleIgnoreCase(updatedBook.getTitle());
+            if (duplicateCheck.isPresent()) {
+                return false; // Would create duplicate
+            }
         }
         
-        // Update the book in the list
-        books.set(index, updatedBook);
-        
-        // Transfer borrow count
-        Integer borrowCount = borrowCounts.remove(existingBook);
-        borrowCounts.put(updatedBook, borrowCount != null ? borrowCount : 0);
+        BookEntity bookEntity = bookEntityOpt.get();
+        bookEntity.setTitle(updatedBook.getTitle());
+        bookEntity.setAuthor(updatedBook.getAuthor());
+        bookRepository.save(bookEntity);
         
         // Send Kafka event for book update (if Kafka is enabled)
         if (kafkaProducerService != null) {
@@ -121,16 +123,13 @@ public class LibraryService {
     }
     
     @Counted(value = "library.books.removed.total", description = "Total number of books removed from the library")
-    public synchronized boolean removeBook(String title) {
-        Optional<Book> opt = findByTitle(title);
-        if (opt.isEmpty()) return false;
+    public boolean removeBook(String title) {
+        Optional<BookEntity> bookEntityOpt = bookRepository.findByTitleIgnoreCase(title);
+        if (bookEntityOpt.isEmpty()) return false;
         
-        Book book = opt.get();
-        books.remove(book);
-        uniqueBooks.remove(book);
-        borrowCounts.remove(book);
-        
-        // No need to update persistent metrics - the gauges will automatically reflect current state
+        BookEntity bookEntity = bookEntityOpt.get();
+        Book book = new Book(bookEntity.getTitle(), bookEntity.getAuthor());
+        bookRepository.delete(bookEntity);
         
         // Send Kafka event for book removal (if Kafka is enabled)
         if (kafkaProducerService != null) {
@@ -144,20 +143,24 @@ public class LibraryService {
     
     // Helper methods for gauges
     private int getTotalBooks() {
-        return books.size();
+        return (int) bookRepository.count();
     }
     
     private int getUniqueBooks() {
-        return uniqueBooks.size();
+        return (int) bookRepository.count();
     }
     
-    public synchronized int getTotalBorrowCount() {
-        return borrowCounts.values().stream().mapToInt(Integer::intValue).sum();
+    public int getTotalBorrowCount() {
+        return bookRepository.findAll().stream()
+                .mapToInt(entity -> entity.getBorrowCount() != null ? entity.getBorrowCount() : 0)
+                .sum();
     }
     
-    public synchronized Map<String, Integer> getBorrowCountsByTitle() {
+    public Map<String, Integer> getBorrowCountsByTitle() {
         Map<String, Integer> result = new HashMap<>();
-        borrowCounts.forEach((book, count) -> result.put(book.getTitle(), count));
+        bookRepository.findAll().forEach(entity -> {
+            result.put(entity.getTitle(), entity.getBorrowCount() != null ? entity.getBorrowCount() : 0);
+        });
         return result;
     }
     

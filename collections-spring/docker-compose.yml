@@ -54,6 +54,24 @@ services:
       KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
     restart: unless-stopped
 
+  postgres:
+    image: postgres:15-alpine
+    container_name: collections-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: collections_db
+      POSTGRES_USER: collections_user
+      POSTGRES_PASSWORD: collections_password
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U collections_user -d collections_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   init-kafka:
     image: confluentinc/cp-kafka:7.4.0
     depends_on:
@@ -80,6 +98,8 @@ services:
       dockerfile: Dockerfile
     container_name: collections-kafka-app
     depends_on:
+      postgres:
+        condition: service_healthy
       kafka:
         condition: service_healthy
       init-kafka:
@@ -89,6 +109,10 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: with-kafka
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/collections_db
+      SPRING_DATASOURCE_USERNAME: collections_user
+      SPRING_DATASOURCE_PASSWORD: collections_password
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
       OTEL_EXPORTER_OTLP_ENDPOINT: http://host.docker.internal:4318
       OTEL_SERVICE_NAME: collections-kafka-challenge
       OTEL_SERVICE_VERSION: 1.0.0
@@ -101,4 +125,5 @@ volumes:
   zookeeper-data:
   zookeeper-logs:
   kafka-data:
+  postgres-data:
   app-logs:
