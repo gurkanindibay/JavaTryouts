@@ -27,7 +27,7 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "books_borrowed_total{application=\"collections-kafka-challenge\"}",
+                                           "expr":  "library_books_borrowed_total{application=\"collections-kafka-challenge\"}",
                                            "legendFormat":  "Total Borrowed"
                                        }
                                    ],
@@ -68,7 +68,7 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "rate(books_borrowed_total{application=\"collections-kafka-challenge\"}[5m]) * 60",
+                                           "expr":  "rate(library_books_borrowed_total{application=\"collections-kafka-challenge\"}[5m]) * 60",
                                            "legendFormat":  "Borrows/min"
                                        }
                                    ],
@@ -93,8 +93,8 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "book_operation_duration_seconds_max{application=\"collections-kafka-challenge\"}",
-                                           "legendFormat":  "Max Duration"
+                                           "expr":  "library_borrow_duration_seconds_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Borrow Duration"
                                        }
                                    ],
                        "fieldConfig":  {
@@ -133,8 +133,12 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "http_errors_total{application=\"collections-kafka-challenge\", controller=\"library\"}",
-                                           "legendFormat":  "Errors"
+                                           "expr":  "sum(rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\", uri=~\"/api/books.*\", status!~\"4..\"}[5m]))",
+                                           "legendFormat":  "Success Rate"
+                                       },
+                                       {
+                                           "expr":  "sum(rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\", uri=~\"/api/books.*\", status=~\"4..\"}[5m]))",
+                                           "legendFormat":  "Error Rate"
                                        }
                                    ],
                        "fieldConfig":  {
@@ -173,11 +177,11 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "books_borrowed_total{application=\"collections-kafka-challenge\"}",
+                                           "expr":  "library_books_borrowed_total{application=\"collections-kafka-challenge\"}",
                                            "legendFormat":  "Total Books Borrowed"
                                        },
                                        {
-                                           "expr":  "rate(books_borrowed_total{application=\"collections-kafka-challenge\"}[5m]) * 60",
+                                           "expr":  "rate(library_books_borrowed_total{application=\"collections-kafka-challenge\"}[5m]) * 60",
                                            "legendFormat":  "Borrow Rate (per minute)"
                                        }
                                    ],
@@ -203,12 +207,20 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "rate(book_operation_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-                                           "legendFormat":  "Operation Rate"
+                                           "expr":  "rate(library_borrow_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Borrow Operation Rate"
                                        },
                                        {
-                                           "expr":  "rate(book_operation_duration_seconds_sum{application=\"collections-kafka-challenge\"}[5m]) / rate(book_operation_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-                                           "legendFormat":  "Average Duration"
+                                           "expr":  "rate(library_add_book_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Add Book Operation Rate"
+                                       },
+                                       {
+                                           "expr":  "rate(library_borrow_duration_seconds_sum{application=\"collections-kafka-challenge\"}[5m]) / rate(library_borrow_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Average Borrow Duration"
+                                       },
+                                       {
+                                           "expr":  "rate(library_add_book_duration_seconds_sum{application=\"collections-kafka-challenge\"}[5m]) / rate(library_add_book_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Average Add Book Duration"
                                        }
                                    ],
                        "yAxes":  [
@@ -233,7 +245,7 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "sum by(uri, method) (rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\", uri=~\"/api/books.*\"}[5m]))",
+                                           "expr":  "sum(rate(http_server_requests_seconds_count{application=\"collections-kafka-challenge\", uri=~\"/api/books.*\"}[5m])) by (uri, method)",
                                            "legendFormat":  "{{method}} {{uri}}"
                                        }
                                    ],
@@ -280,7 +292,7 @@
                    },
                    {
                        "id":  9,
-                       "title":  "Library Controller Metrics",
+                       "title":  "Library Inventory and Operations",
                        "type":  "graph",
                        "gridPos":  {
                                        "h":  8,
@@ -290,17 +302,21 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "http_requests_total{application=\"collections-kafka-challenge\", controller=\"library\"}",
-                                           "legendFormat":  "Total Library Requests"
+                                           "expr":  "library_books{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Current Books in Library"
                                        },
                                        {
-                                           "expr":  "rate(http_request_duration_seconds_count{application=\"collections-kafka-challenge\", controller=\"library\"}[5m])",
-                                           "legendFormat":  "Library Request Rate"
+                                           "expr":  "library_books_added_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Total Books Added"
+                                       },
+                                       {
+                                           "expr":  "library_borrow_count{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Total Borrow Count"
                                        }
                                    ],
                        "yAxes":  [
                                      {
-                                         "label":  "Requests/Rate",
+                                         "label":  "Count",
                                          "min":  0
                                      },
                                      {
@@ -320,24 +336,153 @@
                                    },
                        "targets":  [
                                        {
-                                           "expr":  "books_borrowed_total{application=\"collections-kafka-challenge\"}",
-                                           "legendFormat":  "Books Borrowed",
+                                           "expr":  "library_books_added_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Total Books Added",
                                            "format":  "table",
                                            "instant":  true
                                        },
                                        {
-                                           "expr":  "rate(books_borrowed_total{application=\"collections-kafka-challenge\"}[1h]) * 3600",
+                                           "expr":  "library_books_borrowed_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Total Books Borrowed",
+                                           "format":  "table",
+                                           "instant":  true
+                                       },
+                                       {
+                                           "expr":  "library_books{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Current Inventory",
+                                           "format":  "table",
+                                           "instant":  true
+                                       },
+                                       {
+                                           "expr":  "rate(library_books_borrowed_total{application=\"collections-kafka-challenge\"}[1h]) * 3600",
                                            "legendFormat":  "Hourly Borrow Rate",
                                            "format":  "table",
                                            "instant":  true
                                        },
                                        {
-                                           "expr":  "book_operation_duration_seconds_max{application=\"collections-kafka-challenge\"}",
-                                           "legendFormat":  "Max Operation Time",
+                                           "expr":  "library_borrow_duration_seconds_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Borrow Time",
+                                           "format":  "table",
+                                           "instant":  true
+                                       },
+                                       {
+                                           "expr":  "library_add_book_duration_seconds_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Add Book Time",
                                            "format":  "table",
                                            "instant":  true
                                        }
                                    ]
+                   },
+                   {
+                       "id":  11,
+                       "title":  "Total Books Added",
+                       "type":  "stat",
+                       "gridPos":  {
+                                       "h":  4,
+                                       "w":  6,
+                                       "x":  0,
+                                       "y":  32
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "library_books_added_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Total Added"
+                                       }
+                                   ],
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "color":  {
+                                                                          "mode":  "thresholds"
+                                                                      },
+                                                            "thresholds":  {
+                                                                               "steps":  [
+                                                                                             {
+                                                                                                 "color":  "blue",
+                                                                                                 "value":  0
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "green",
+                                                                                                 "value":  10
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "yellow",
+                                                                                                 "value":  50
+                                                                                             }
+                                                                                         ]
+                                                                           },
+                                                            "unit":  "short"
+                                                        }
+                                       }
+                   },
+                   {
+                       "id":  12,
+                       "title":  "Current Library Inventory",
+                       "type":  "stat",
+                       "gridPos":  {
+                                       "h":  4,
+                                       "w":  6,
+                                       "x":  6,
+                                       "y":  32
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "library_books{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Books Available"
+                                       }
+                                   ],
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "color":  {
+                                                                          "mode":  "thresholds"
+                                                                      },
+                                                            "thresholds":  {
+                                                                               "steps":  [
+                                                                                             {
+                                                                                                 "color":  "red",
+                                                                                                 "value":  0
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "yellow",
+                                                                                                 "value":  5
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "green",
+                                                                                                 "value":  10
+                                                                                             }
+                                                                                         ]
+                                                                           },
+                                                            "unit":  "short"
+                                                        }
+                                       }
+                   },
+                   {
+                       "id":  13,
+                       "title":  "Average Operation Times",
+                       "type":  "stat",
+                       "gridPos":  {
+                                       "h":  4,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  32
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "rate(library_add_book_duration_seconds_sum{application=\"collections-kafka-challenge\"}[5m]) / rate(library_add_book_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Avg Add Book Time"
+                                       },
+                                       {
+                                           "expr":  "rate(library_borrow_duration_seconds_sum{application=\"collections-kafka-challenge\"}[5m]) / rate(library_borrow_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Avg Borrow Time"
+                                       }
+                                   ],
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "color":  {
+                                                                          "mode":  "palette-classic"
+                                                                      },
+                                                            "unit":  "s"
+                                                        }
+                                       }
                    }
                ]
 }
