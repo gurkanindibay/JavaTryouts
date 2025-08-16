@@ -1,9 +1,11 @@
 package com.example.config;
 
-import io.micrometer.core.instrument.Counter;
+import com.example.config.entity.ObservabilityMetricEntity;
+import com.example.config.repository.ObservabilityMetricRepository;
+import com.example.kafka.model.ObservabilityMetricEvent;
+import com.example.kafka.producer.KafkaProducerService;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.PostConstruct;
@@ -17,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Service for persisting meaningful observability metrics that can't be derived from business data.
+ * Now uses Kafka for async processing and JPA for persistence.
  * Focus on operational metrics like errors, failures, conflicts, etc.
  */
 @Service
@@ -26,7 +29,10 @@ public class ObservabilityMetricsService {
     private static final Logger logger = LoggerFactory.getLogger(ObservabilityMetricsService.class);
     
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private ObservabilityMetricRepository observabilityMetricRepository;
+    
+    @Autowired
+    private KafkaProducerService kafkaProducerService;
     
     @Autowired
     private MeterRegistry meterRegistry;
@@ -47,45 +53,22 @@ public class ObservabilityMetricsService {
     
     @PostConstruct
     public void initializeObservabilityMetrics() {
-        logger.info("Initializing persistent observability metrics...");
+        logger.info("Initializing persistent observability metrics with Kafka and JPA...");
         
-        // Create metrics table if it doesn't exist
-        createMetricsTable();
-        
-        // Load persisted observability metrics only
+        // Load persisted observability metrics from database using JPA
         loadPersistedObservabilityMetrics();
         
         logger.info("Persistent observability metrics initialized successfully");
     }
     
-    private void createMetricsTable() {
-        try {
-            jdbcTemplate.execute("""
-                CREATE TABLE IF NOT EXISTS observability_metrics (
-                    metric_name VARCHAR(255) PRIMARY KEY,
-                    metric_value BIGINT NOT NULL,
-                    metric_type VARCHAR(50) NOT NULL,
-                    description VARCHAR(500),
-                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """);
-            logger.info("Observability metrics table created/verified");
-        } catch (Exception e) {
-            logger.error("Failed to create observability metrics table", e);
-        }
-    }
-    
     private void loadPersistedObservabilityMetrics() {
         try {
-            String query = "SELECT metric_name, metric_value FROM observability_metrics WHERE metric_type = 'COUNTER'";
-            jdbcTemplate.query(query, (rs) -> {
-                String metricName = rs.getString("metric_name");
-                long value = rs.getLong("metric_value");
-                
+            // Use JPA to load all counter metrics
+            observabilityMetricRepository.findAllCounters().forEach(metric -> {
                 // Only restore metrics that are in our observability metrics set
-                if (PERSISTENT_OBSERVABILITY_METRICS.contains(metricName)) {
-                    persistentCounters.put(metricName, new AtomicLong(value));
-                    logger.info("Restored observability counter {}: {}", metricName, value);
+                if (PERSISTENT_OBSERVABILITY_METRICS.contains(metric.getMetricName())) {
+                    persistentCounters.put(metric.getMetricName(), new AtomicLong(metric.getMetricValue()));
+                    logger.info("Restored observability counter {}: {}", metric.getMetricName(), metric.getMetricValue());
                 }
             });
             
@@ -97,13 +80,18 @@ public class ObservabilityMetricsService {
     
     /**
      * Increment a persistent observability counter.
+     * Now sends event to Kafka for async processing.
      * Only increments if the metric is in the allowed observability metrics list.
      */
     public void incrementObservabilityCounter(String metricName) {
         if (PERSISTENT_OBSERVABILITY_METRICS.contains(metricName)) {
             long newValue = persistentCounters.computeIfAbsent(metricName, k -> new AtomicLong(0)).incrementAndGet();
-            persistCounter(metricName, newValue);
-            logger.debug("Incremented observability counter {}: {}", metricName, newValue);
+            
+            // Send event to Kafka for async persistence
+            ObservabilityMetricEvent event = new ObservabilityMetricEvent(metricName, newValue, "INCREMENT");
+            kafkaProducerService.sendObservabilityMetricEvent(event);
+            
+            logger.debug("Incremented observability counter {} to {} and sent to Kafka", metricName, newValue);
         }
     }
     
@@ -151,18 +139,5 @@ public class ObservabilityMetricsService {
         incrementObservabilityCounter("library.concurrent.access.conflicts.total");
         meterRegistry.counter("library.concurrent.access.conflicts.total", 
                 "description", "Total number of concurrent access conflicts").increment();
-    }
-    
-    private void persistCounter(String metricName, long value) {
-        try {
-            // Delete and insert approach for H2 compatibility
-            jdbcTemplate.update("DELETE FROM observability_metrics WHERE metric_name = ?", metricName);
-            jdbcTemplate.update("""
-                INSERT INTO observability_metrics (metric_name, metric_value, metric_type, description, last_updated)
-                VALUES (?, ?, 'COUNTER', 'Persistent observability counter', CURRENT_TIMESTAMP)
-                """, metricName, value);
-        } catch (Exception e) {
-            logger.error("Failed to persist observability counter {}: {}", metricName, value, e);
-        }
     }
 }

@@ -87,6 +87,7 @@ services:
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic book-events --replication-factor 1 --partitions 3
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic borrow-events --replication-factor 1 --partitions 3
       kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic partition-demo --replication-factor 1 --partitions 3
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic observability-metrics --replication-factor 1 --partitions 3
 
       echo -e 'Successfully created the following topics:'
       kafka-topics --bootstrap-server kafka:29092 --list

@@ -2,6 +2,7 @@ package com.example.kafka.producer;
 
 import com.example.kafka.model.BookEvent;
 import com.example.kafka.model.BorrowEvent;
+import com.example.kafka.model.ObservabilityMetricEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ public class KafkaProducerService {
     public static final String BOOK_EVENTS_TOPIC = "book-events";
     public static final String BORROW_EVENTS_TOPIC = "borrow-events";
     public static final String PARTITION_DEMO_TOPIC = "partition-demo";
+    public static final String OBSERVABILITY_METRICS_TOPIC = "observability-metrics";
 
     @Autowired
     private KafkaTemplate<String, Object> kafkaTemplate;
@@ -111,5 +113,24 @@ public class KafkaProducerService {
             String key = "batch-key-" + (i % 3); // Distribute across 3 different keys
             sendWithCustomKey(topic, key, message);
         }
+    }
+
+    /**
+     * Send observability metric event to Kafka topic for async processing
+     */
+    public void sendObservabilityMetricEvent(ObservabilityMetricEvent event) {
+        logger.debug("Sending observability metric event: {}", event);
+        
+        CompletableFuture<SendResult<String, Object>> future = 
+            kafkaTemplate.send(OBSERVABILITY_METRICS_TOPIC, event.getMetricName(), event);
+        
+        future.whenComplete((result, exception) -> {
+            if (exception == null) {
+                logger.debug("Sent observability metric event=[{}] with offset=[{}] to partition=[{}]", 
+                    event.getMetricName(), result.getRecordMetadata().offset(), result.getRecordMetadata().partition());
+            } else {
+                logger.error("Unable to send observability metric event=[{}] due to: {}", event, exception.getMessage());
+            }
+        });
     }
 }
