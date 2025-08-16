@@ -1,259 +1,380 @@
 {
-  "dashboard": {
-    "id": null,
-    "title": "Database & Connection Pool",
-    "tags": ["database", "hikaricp", "jdbc", "collections-challenge"],
-    "style": "dark",
-    "timezone": "browser",
-    "refresh": "30s",
-    "time": {
-      "from": "now-1h",
-      "to": "now"
-    },
-    "panels": [
-      {
-        "id": 1,
-        "title": "HikariCP Connection Pool Overview",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-        "targets": [
-          {
-            "expr": "hikaricp_connections_active{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Active Connections"
-          },
-          {
-            "expr": "hikaricp_connections_idle{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Idle Connections"
-          },
-          {
-            "expr": "hikaricp_connections{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Total Connections"
-          },
-          {
-            "expr": "hikaricp_connections_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Connections"
-          }
-        ],
-        "yAxes": [
-          {"label": "Connection Count", "min": 0},
-          {"show": false}
-        ],
-        "legend": {"show": true, "alignAsTable": true, "rightSide": false}
-      },
-      {
-        "id": 2,
-        "title": "Connection Pool Status",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
-        "targets": [
-          {
-            "expr": "hikaricp_connections_active{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Active"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "thresholds": {
-              "steps": [
-                {"color": "green", "value": 0},
-                {"color": "yellow", "value": 5},
-                {"color": "red", "value": 8}
-              ]
-            }
-          }
-        }
-      },
-      {
-        "id": 3,
-        "title": "Pending Connections",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
-        "targets": [
-          {
-            "expr": "hikaricp_connections_pending{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Pending"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {
-              "mode": "thresholds"
-            },
-            "thresholds": {
-              "steps": [
-                {"color": "green", "value": 0},
-                {"color": "yellow", "value": 1},
-                {"color": "red", "value": 3}
-              ]
-            }
-          }
-        }
-      },
-      {
-        "id": 4,
-        "title": "Pool Min/Max Configuration",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 4},
-        "targets": [
-          {
-            "expr": "hikaricp_connections_min{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Min"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {"mode": "palette-classic"}
-          }
-        }
-      },
-      {
-        "id": 5,
-        "title": "Max Pool Size",
-        "type": "stat",
-        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 4},
-        "targets": [
-          {
-            "expr": "hikaricp_connections_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {"mode": "palette-classic"}
-          }
-        }
-      },
-      {
-        "id": 6,
-        "title": "Connection Acquisition Time",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.50, rate(hikaricp_connections_acquire_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
-            "legendFormat": "50th percentile"
-          },
-          {
-            "expr": "histogram_quantile(0.95, rate(hikaricp_connections_acquire_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
-            "legendFormat": "95th percentile"
-          },
-          {
-            "expr": "hikaricp_connections_acquire_seconds_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Acquire Time"
-          }
-        ],
-        "yAxes": [
-          {"label": "Acquisition Time", "unit": "s", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 7,
-        "title": "Connection Usage Time",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-        "targets": [
-          {
-            "expr": "histogram_quantile(0.50, rate(hikaricp_connections_usage_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
-            "legendFormat": "50th percentile"
-          },
-          {
-            "expr": "histogram_quantile(0.95, rate(hikaricp_connections_usage_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
-            "legendFormat": "95th percentile"
-          },
-          {
-            "expr": "hikaricp_connections_usage_seconds_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Usage Time"
-          }
-        ],
-        "yAxes": [
-          {"label": "Usage Time", "unit": "s", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 8,
-        "title": "Connection Creation Time",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
-        "targets": [
-          {
-            "expr": "rate(hikaricp_connections_creation_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "Creation Rate"
-          },
-          {
-            "expr": "hikaricp_connections_creation_seconds_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Creation Time"
-          }
-        ],
-        "yAxes": [
-          {"label": "Creation Rate/Time", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 9,
-        "title": "Connection Timeouts",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
-        "targets": [
-          {
-            "expr": "hikaricp_connections_timeout_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Connection Timeouts"
-          }
-        ],
-        "yAxes": [
-          {"label": "Timeout Count", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 10,
-        "title": "JDBC Connection Metrics",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
-        "targets": [
-          {
-            "expr": "jdbc_connections_active{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "JDBC Active"
-          },
-          {
-            "expr": "jdbc_connections_idle{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "JDBC Idle"
-          },
-          {
-            "expr": "jdbc_connections_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "JDBC Max"
-          }
-        ],
-        "yAxes": [
-          {"label": "JDBC Connections", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 11,
-        "title": "Transaction Metrics",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
-        "targets": [
-          {
-            "expr": "rate(transaction_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "Transaction Rate"
-          },
-          {
-            "expr": "transaction_duration_seconds_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Transaction Time"
-          }
-        ],
-        "yAxes": [
-          {"label": "Rate/Time", "min": 0},
-          {"show": false}
-        ]
-      }
-    ]
-  }
+    "id":  null,
+    "title":  "Database \u0026 Connection Pool",
+    "tags":  [
+                 "database",
+                 "hikaricp",
+                 "jdbc",
+                 "collections-challenge"
+             ],
+    "style":  "dark",
+    "timezone":  "browser",
+    "refresh":  "30s",
+    "time":  {
+                 "from":  "now-1h",
+                 "to":  "now"
+             },
+    "panels":  [
+                   {
+                       "id":  1,
+                       "title":  "HikariCP Connection Pool Overview",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  0
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "hikaricp_connections_active{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Active Connections"
+                                       },
+                                       {
+                                           "expr":  "hikaricp_connections_idle{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Idle Connections"
+                                       },
+                                       {
+                                           "expr":  "hikaricp_connections{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Total Connections"
+                                       },
+                                       {
+                                           "expr":  "hikaricp_connections_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Connections"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Connection Count",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ],
+                       "legend":  {
+                                      "show":  true,
+                                      "alignAsTable":  true,
+                                      "rightSide":  false
+                                  }
+                   },
+                   {
+                       "id":  2,
+                       "title":  "Connection Pool Status",
+                       "type":  "stat",
+                       "gridPos":  {
+                                       "h":  4,
+                                       "w":  6,
+                                       "x":  12,
+                                       "y":  0
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "hikaricp_connections_active{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Active"
+                                       }
+                                   ],
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "color":  {
+                                                                          "mode":  "thresholds"
+                                                                      },
+                                                            "thresholds":  {
+                                                                               "steps":  [
+                                                                                             {
+                                                                                                 "color":  "green",
+                                                                                                 "value":  0
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "yellow",
+                                                                                                 "value":  5
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "red",
+                                                                                                 "value":  8
+                                                                                             }
+                                                                                         ]
+                                                                           }
+                                                        }
+                                       }
+                   },
+                   {
+                       "id":  3,
+                       "title":  "Pending Connections",
+                       "type":  "stat",
+                       "gridPos":  {
+                                       "h":  4,
+                                       "w":  6,
+                                       "x":  18,
+                                       "y":  0
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "hikaricp_connections_pending{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Pending"
+                                       }
+                                   ],
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "color":  {
+                                                                          "mode":  "thresholds"
+                                                                      },
+                                                            "thresholds":  {
+                                                                               "steps":  [
+                                                                                             {
+                                                                                                 "color":  "green",
+                                                                                                 "value":  0
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "yellow",
+                                                                                                 "value":  1
+                                                                                             },
+                                                                                             {
+                                                                                                 "color":  "red",
+                                                                                                 "value":  3
+                                                                                             }
+                                                                                         ]
+                                                                           }
+                                                        }
+                                       }
+                   },
+                   {
+                       "id":  4,
+                       "title":  "Pool Min/Max Configuration",
+                       "type":  "stat",
+                       "gridPos":  {
+                                       "h":  4,
+                                       "w":  6,
+                                       "x":  12,
+                                       "y":  4
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "hikaricp_connections_min{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Min"
+                                       }
+                                   ],
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "color":  {
+                                                                          "mode":  "palette-classic"
+                                                                      }
+                                                        }
+                                       }
+                   },
+                   {
+                       "id":  5,
+                       "title":  "Max Pool Size",
+                       "type":  "stat",
+                       "gridPos":  {
+                                       "h":  4,
+                                       "w":  6,
+                                       "x":  18,
+                                       "y":  4
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "hikaricp_connections_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max"
+                                       }
+                                   ],
+                       "fieldConfig":  {
+                                           "defaults":  {
+                                                            "color":  {
+                                                                          "mode":  "palette-classic"
+                                                                      }
+                                                        }
+                                       }
+                   },
+                   {
+                       "id":  6,
+                       "title":  "Connection Acquisition Time",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "histogram_quantile(0.50, rate(hikaricp_connections_acquire_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
+                                           "legendFormat":  "50th percentile"
+                                       },
+                                       {
+                                           "expr":  "histogram_quantile(0.95, rate(hikaricp_connections_acquire_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
+                                           "legendFormat":  "95th percentile"
+                                       },
+                                       {
+                                           "expr":  "hikaricp_connections_acquire_seconds_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Acquire Time"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Acquisition Time",
+                                         "unit":  "s",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  7,
+                       "title":  "Connection Usage Time",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "histogram_quantile(0.50, rate(hikaricp_connections_usage_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
+                                           "legendFormat":  "50th percentile"
+                                       },
+                                       {
+                                           "expr":  "histogram_quantile(0.95, rate(hikaricp_connections_usage_seconds_bucket{application=\"collections-kafka-challenge\"}[5m]))",
+                                           "legendFormat":  "95th percentile"
+                                       },
+                                       {
+                                           "expr":  "hikaricp_connections_usage_seconds_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Usage Time"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Usage Time",
+                                         "unit":  "s",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  8,
+                       "title":  "Connection Creation Time",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  16
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "rate(hikaricp_connections_creation_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Creation Rate"
+                                       },
+                                       {
+                                           "expr":  "hikaricp_connections_creation_seconds_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Creation Time"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Creation Rate/Time",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  9,
+                       "title":  "Connection Timeouts",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  16
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "hikaricp_connections_timeout_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Connection Timeouts"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Timeout Count",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  10,
+                       "title":  "JDBC Connection Metrics",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  24
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jdbc_connections_active{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "JDBC Active"
+                                       },
+                                       {
+                                           "expr":  "jdbc_connections_idle{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "JDBC Idle"
+                                       },
+                                       {
+                                           "expr":  "jdbc_connections_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "JDBC Max"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "JDBC Connections",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  11,
+                       "title":  "Transaction Metrics",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  24
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "rate(transaction_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "Transaction Rate"
+                                       },
+                                       {
+                                           "expr":  "transaction_duration_seconds_max{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max Transaction Time"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Rate/Time",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   }
+               ]
 }

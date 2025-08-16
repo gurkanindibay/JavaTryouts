@@ -1,181 +1,271 @@
 {
-  "dashboard": {
-    "id": null,
-    "title": "JVM Metrics Dashboard",
-    "tags": ["jvm", "spring-boot", "collections-challenge"],
-    "style": "dark",
-    "timezone": "browser",
-    "refresh": "30s",
-    "time": {
-      "from": "now-1h",
-      "to": "now"
-    },
-    "panels": [
-      {
-        "id": 1,
-        "title": "JVM Memory Usage",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
-        "targets": [
-          {
-            "expr": "jvm_memory_used_bytes{application=\"collections-kafka-challenge\", area=\"heap\"}",
-            "legendFormat": "Heap - {{id}}"
-          },
-          {
-            "expr": "jvm_memory_used_bytes{application=\"collections-kafka-challenge\", area=\"nonheap\"}",
-            "legendFormat": "Non-Heap - {{id}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "Memory", "unit": "bytes", "min": 0},
-          {"show": false}
-        ],
-        "legend": {"show": true, "alignAsTable": true, "rightSide": false}
-      },
-      {
-        "id": 2,
-        "title": "JVM Memory Committed vs Max",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
-        "targets": [
-          {
-            "expr": "jvm_memory_committed_bytes{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Committed - {{id}}"
-          },
-          {
-            "expr": "jvm_memory_max_bytes{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max - {{id}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "Memory", "unit": "bytes", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 3,
-        "title": "Garbage Collection",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-        "targets": [
-          {
-            "expr": "rate(jvm_gc_pause_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "GC Frequency - {{gc}}"
-          },
-          {
-            "expr": "rate(jvm_gc_pause_seconds_sum{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "GC Time - {{gc}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "GC Events/Time", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 4,
-        "title": "GC Memory Stats",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-        "targets": [
-          {
-            "expr": "jvm_gc_memory_allocated_bytes_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Memory Allocated"
-          },
-          {
-            "expr": "jvm_gc_memory_promoted_bytes_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Memory Promoted"
-          },
-          {
-            "expr": "jvm_gc_live_data_size_bytes{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Live Data Size"
-          }
-        ],
-        "yAxes": [
-          {"label": "Memory", "unit": "bytes", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 5,
-        "title": "JVM Threads",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
-        "targets": [
-          {
-            "expr": "jvm_threads_live_threads{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Live Threads"
-          },
-          {
-            "expr": "jvm_threads_daemon_threads{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Daemon Threads"
-          },
-          {
-            "expr": "jvm_threads_peak_threads{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Peak Threads"
-          }
-        ],
-        "yAxes": [
-          {"label": "Thread Count", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 6,
-        "title": "Thread States",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
-        "targets": [
-          {
-            "expr": "jvm_threads_states_threads{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "{{state}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "Thread Count", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 7,
-        "title": "JVM Buffer Pools",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
-        "targets": [
-          {
-            "expr": "jvm_buffer_memory_used_bytes{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Used - {{id}}"
-          },
-          {
-            "expr": "jvm_buffer_total_capacity_bytes{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Capacity - {{id}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "Buffer Memory", "unit": "bytes", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 8,
-        "title": "Class Loading",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
-        "targets": [
-          {
-            "expr": "jvm_classes_loaded_classes{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Loaded Classes"
-          },
-          {
-            "expr": "jvm_classes_unloaded_classes_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Unloaded Classes"
-          }
-        ],
-        "yAxes": [
-          {"label": "Class Count", "min": 0},
-          {"show": false}
-        ]
-      }
-    ]
-  }
+    "id":  null,
+    "title":  "JVM Metrics Dashboard",
+    "tags":  [
+                 "jvm",
+                 "spring-boot",
+                 "collections-challenge"
+             ],
+    "style":  "dark",
+    "timezone":  "browser",
+    "refresh":  "30s",
+    "time":  {
+                 "from":  "now-1h",
+                 "to":  "now"
+             },
+    "panels":  [
+                   {
+                       "id":  1,
+                       "title":  "JVM Memory Usage",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  0
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jvm_memory_used_bytes{application=\"collections-kafka-challenge\", area=\"heap\"}",
+                                           "legendFormat":  "Heap - {{id}}"
+                                       },
+                                       {
+                                           "expr":  "jvm_memory_used_bytes{application=\"collections-kafka-challenge\", area=\"nonheap\"}",
+                                           "legendFormat":  "Non-Heap - {{id}}"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Memory",
+                                         "unit":  "bytes",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ],
+                       "legend":  {
+                                      "show":  true,
+                                      "alignAsTable":  true,
+                                      "rightSide":  false
+                                  }
+                   },
+                   {
+                       "id":  2,
+                       "title":  "JVM Memory Committed vs Max",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  0
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jvm_memory_committed_bytes{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Committed - {{id}}"
+                                       },
+                                       {
+                                           "expr":  "jvm_memory_max_bytes{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Max - {{id}}"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Memory",
+                                         "unit":  "bytes",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  3,
+                       "title":  "Garbage Collection",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "rate(jvm_gc_pause_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "GC Frequency - {{gc}}"
+                                       },
+                                       {
+                                           "expr":  "rate(jvm_gc_pause_seconds_sum{application=\"collections-kafka-challenge\"}[5m])",
+                                           "legendFormat":  "GC Time - {{gc}}"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "GC Events/Time",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  4,
+                       "title":  "GC Memory Stats",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  8
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jvm_gc_memory_allocated_bytes_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Memory Allocated"
+                                       },
+                                       {
+                                           "expr":  "jvm_gc_memory_promoted_bytes_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Memory Promoted"
+                                       },
+                                       {
+                                           "expr":  "jvm_gc_live_data_size_bytes{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Live Data Size"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Memory",
+                                         "unit":  "bytes",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  5,
+                       "title":  "JVM Threads",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  16
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jvm_threads_live_threads{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Live Threads"
+                                       },
+                                       {
+                                           "expr":  "jvm_threads_daemon_threads{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Daemon Threads"
+                                       },
+                                       {
+                                           "expr":  "jvm_threads_peak_threads{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Peak Threads"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Thread Count",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  6,
+                       "title":  "Thread States",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  16
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jvm_threads_states_threads{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "{{state}}"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Thread Count",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  7,
+                       "title":  "JVM Buffer Pools",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  0,
+                                       "y":  24
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jvm_buffer_memory_used_bytes{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Used - {{id}}"
+                                       },
+                                       {
+                                           "expr":  "jvm_buffer_total_capacity_bytes{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Capacity - {{id}}"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Buffer Memory",
+                                         "unit":  "bytes",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   },
+                   {
+                       "id":  8,
+                       "title":  "Class Loading",
+                       "type":  "graph",
+                       "gridPos":  {
+                                       "h":  8,
+                                       "w":  12,
+                                       "x":  12,
+                                       "y":  24
+                                   },
+                       "targets":  [
+                                       {
+                                           "expr":  "jvm_classes_loaded_classes{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Loaded Classes"
+                                       },
+                                       {
+                                           "expr":  "jvm_classes_unloaded_classes_total{application=\"collections-kafka-challenge\"}",
+                                           "legendFormat":  "Unloaded Classes"
+                                       }
+                                   ],
+                       "yAxes":  [
+                                     {
+                                         "label":  "Class Count",
+                                         "min":  0
+                                     },
+                                     {
+                                         "show":  false
+                                     }
+                                 ]
+                   }
+               ]
 }

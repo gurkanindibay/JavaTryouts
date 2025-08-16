@@ -1,196 +1,194 @@
 {
-  "dashboard": {
-    "id": null,
-    "title": "Kafka Metrics Dashboard",
-    "tags": ["kafka", "messaging", "events", "collections-challenge"],
-    "style": "dark",
-    "timezone": "browser",
-    "refresh": "30s",
-    "time": {
-      "from": "now-1h",
-      "to": "now"
-    },
-    "panels": [
-      {
-        "id": 1,
-        "title": "Kafka Messages Sent",
-        "type": "stat",
-        "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
-        "targets": [
-          {
-            "expr": "kafka_messages_sent_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Messages Sent"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {"mode": "palette-classic"},
-            "unit": "short"
-          }
+  "id": null,
+  "title": "Kafka Metrics Dashboard",
+  "tags": ["kafka", "messaging", "events", "collections-challenge"],
+  "style": "dark",
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Kafka Messages Sent",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "kafka_messages_sent_total{application=\"collections-kafka-challenge\"}",
+          "legendFormat": "Messages Sent"
         }
-      },
-      {
-        "id": 2,
-        "title": "Kafka Messages Received",
-        "type": "stat",
-        "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
-        "targets": [
-          {
-            "expr": "kafka_messages_received_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Messages Received"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {"mode": "palette-classic"},
-            "unit": "short"
-          }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short"
         }
-      },
-      {
-        "id": 3,
-        "title": "Kafka Events Sent",
-        "type": "stat",
-        "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
-        "targets": [
-          {
-            "expr": "kafka_events_sent_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Events Sent"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {"mode": "palette-classic"},
-            "unit": "short"
-          }
-        }
-      },
-      {
-        "id": 4,
-        "title": "Kafka API Requests",
-        "type": "stat",
-        "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
-        "targets": [
-          {
-            "expr": "kafka_requests_total{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "API Requests"
-          }
-        ],
-        "fieldConfig": {
-          "defaults": {
-            "color": {"mode": "palette-classic"},
-            "unit": "short"
-          }
-        }
-      },
-      {
-        "id": 5,
-        "title": "Kafka Message Rate",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-        "targets": [
-          {
-            "expr": "rate(kafka_messages_sent_total{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "Messages Sent/sec"
-          },
-          {
-            "expr": "rate(kafka_messages_received_total{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "Messages Received/sec"
-          }
-        ],
-        "yAxes": [
-          {"label": "Messages/sec", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 6,
-        "title": "Kafka Request Duration",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-        "targets": [
-          {
-            "expr": "rate(kafka_request_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "Request Rate"
-          },
-          {
-            "expr": "kafka_request_duration_seconds_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Duration"
-          }
-        ],
-        "yAxes": [
-          {"label": "Rate/Duration", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 7,
-        "title": "Spring Kafka Listener Performance",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
-        "targets": [
-          {
-            "expr": "rate(spring_kafka_listener_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "Listener Rate - {{name}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "Listeners/sec", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 8,
-        "title": "Kafka Listener Duration",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
-        "targets": [
-          {
-            "expr": "spring_kafka_listener_seconds_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Duration - {{name}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "Duration (s)", "unit": "s", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 9,
-        "title": "Kafka Template Performance",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
-        "targets": [
-          {
-            "expr": "rate(spring_kafka_template_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
-            "legendFormat": "Template Operations/sec"
-          },
-          {
-            "expr": "spring_kafka_template_seconds_max{application=\"collections-kafka-challenge\"}",
-            "legendFormat": "Max Operation Time"
-          }
-        ],
-        "yAxes": [
-          {"label": "Operations/Time", "min": 0},
-          {"show": false}
-        ]
-      },
-      {
-        "id": 10,
-        "title": "Kafka Error Monitoring",
-        "type": "graph",
-        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
-        "targets": [
-          {
-            "expr": "sum by(result) (rate(spring_kafka_listener_seconds_count{application=\"collections-kafka-challenge\"}[5m]))",
-            "legendFormat": "{{result}}"
-          }
-        ],
-        "yAxes": [
-          {"label": "Events/sec", "min": 0},
-          {"show": false}
-        ]
       }
-    ]
-  }
+    },
+    {
+      "id": 2,
+      "title": "Kafka Messages Received",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "expr": "kafka_messages_received_total{application=\"collections-kafka-challenge\"}",
+          "legendFormat": "Messages Received"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Kafka Events Sent",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "kafka_events_sent_total{application=\"collections-kafka-challenge\"}",
+          "legendFormat": "Events Sent"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Kafka API Requests",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {
+          "expr": "kafka_requests_total{application=\"collections-kafka-challenge\"}",
+          "legendFormat": "API Requests"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Kafka Message Rate",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "rate(kafka_messages_sent_total{application=\"collections-kafka-challenge\"}[5m])",
+          "legendFormat": "Messages Sent/sec"
+        },
+        {
+          "expr": "rate(kafka_messages_received_total{application=\"collections-kafka-challenge\"}[5m])",
+          "legendFormat": "Messages Received/sec"
+        }
+      ],
+      "yAxes": [
+        {"label": "Messages/sec", "min": 0},
+        {"show": false}
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Kafka Request Duration",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "rate(kafka_request_duration_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+          "legendFormat": "Request Rate"
+        },
+        {
+          "expr": "kafka_request_duration_seconds_max{application=\"collections-kafka-challenge\"}",
+          "legendFormat": "Max Duration"
+        }
+      ],
+      "yAxes": [
+        {"label": "Rate/Duration", "min": 0},
+        {"show": false}
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Spring Kafka Listener Performance",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {
+          "expr": "rate(spring_kafka_listener_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+          "legendFormat": "Listener Rate - {{name}}"
+        }
+      ],
+      "yAxes": [
+        {"label": "Listeners/sec", "min": 0},
+        {"show": false}
+      ]
+    },
+    {
+      "id": 8,
+      "title": "Kafka Listener Duration",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {
+          "expr": "spring_kafka_listener_seconds_max{application=\"collections-kafka-challenge\"}",
+          "legendFormat": "Max Duration - {{name}}"
+        }
+      ],
+      "yAxes": [
+        {"label": "Duration (s)", "unit": "s", "min": 0},
+        {"show": false}
+      ]
+    },
+    {
+      "id": 9,
+      "title": "Kafka Template Performance",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "targets": [
+        {
+          "expr": "rate(spring_kafka_template_seconds_count{application=\"collections-kafka-challenge\"}[5m])",
+          "legendFormat": "Template Operations/sec"
+        },
+        {
+          "expr": "spring_kafka_template_seconds_max{application=\"collections-kafka-challenge\"}",
+          "legendFormat": "Max Operation Time"
+        }
+      ],
+      "yAxes": [
+        {"label": "Operations/Time", "min": 0},
+        {"show": false}
+      ]
+    },
+    {
+      "id": 10,
+      "title": "Kafka Error Monitoring",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "targets": [
+        {
+          "expr": "sum by(result) (rate(spring_kafka_listener_seconds_count{application=\"collections-kafka-challenge\"}[5m]))",
+          "legendFormat": "{{result}}"
+        }
+      ],
+      "yAxes": [
+        {"label": "Events/sec", "min": 0},
+        {"show": false}
+      ]
+    }
+  ]
 }
