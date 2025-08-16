@@ -3,10 +3,10 @@ package com.example.library;
 import com.example.kafka.model.BookEvent;
 import com.example.kafka.model.BorrowEvent;
 import com.example.kafka.producer.KafkaProducerService;
-import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.annotation.Counted;
+import io.micrometer.core.annotation.Timed;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,47 +21,15 @@ public class LibraryService {
     @Autowired(required = false)
     private KafkaProducerService kafkaProducerService;
     
-    // Micrometer metrics
+    // Micrometer metrics registry for gauges only
     private final MeterRegistry meterRegistry;
-    private final Counter booksAddedCounter;
-    private final Counter booksBorrowedCounter;
-    private final Counter booksRemovedCounter;
-    private final Counter duplicateBookAttemptsCounter;
-    private final Timer borrowOperationTimer;
-    private final Timer addBookTimer;
 
     @Autowired
     public LibraryService(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
         
-        // Initialize counters
-        this.booksAddedCounter = Counter.builder("library.books.added.total")
-                .description("Total number of books added to the library")
-                .register(meterRegistry);
-                
-        this.booksBorrowedCounter = Counter.builder("library.books.borrowed.total")
-                .description("Total number of books borrowed")
-                .register(meterRegistry);
-                
-        this.booksRemovedCounter = Counter.builder("library.books.removed.total")
-                .description("Total number of books removed from the library")
-                .register(meterRegistry);
-                
-        this.duplicateBookAttemptsCounter = Counter.builder("library.books.duplicate.attempts.total")
-                .description("Total number of duplicate book addition attempts")
-                .register(meterRegistry);
-                
-        // Initialize timers
-        this.borrowOperationTimer = Timer.builder("library.borrow.duration")
-                .description("Time taken to process book borrow operations")
-                .register(meterRegistry);
-                
-        this.addBookTimer = Timer.builder("library.add.book.duration")
-                .description("Time taken to add a book")
-                .register(meterRegistry);
-        
-        // Initialize gauges
-        Gauge.builder("library.books.total", this, LibraryService::getTotalBooks)
+        // Initialize gauges only - counters and timers are handled by annotations
+        Gauge.builder("library.books", this, LibraryService::getTotalBooks)
                 .description("Current total number of books in the library")
                 .register(meterRegistry);
                 
@@ -69,33 +37,31 @@ public class LibraryService {
                 .description("Current number of unique books in the library")
                 .register(meterRegistry);
                 
-        Gauge.builder("library.borrow.count.total", this, LibraryService::getTotalBorrowCount)
+        Gauge.builder("library.borrow.count", this, LibraryService::getTotalBorrowCount)
                 .description("Current total borrow count across all books")
                 .register(meterRegistry);
     }
 
+    @Timed(value = "library.add.book.duration", description = "Time taken to add a book")
+    @Counted(value = "library.books.added.total", description = "Total number of books added to the library")
     public synchronized boolean addBook(Book book) {
-        Timer.Sample sample = Timer.start(meterRegistry);
-        try {
-            if (!uniqueBooks.add(book)) {
-                duplicateBookAttemptsCounter.increment();
-                return false; // duplicate
-            }
-            books.add(book);
-            borrowCounts.put(book, 0);
-            booksAddedCounter.increment();
-            
-            // Send Kafka event for book addition (if Kafka is enabled)
-            if (kafkaProducerService != null) {
-                BookEvent event = new BookEvent("BOOK_ADDED", 
-                    generateBookId(book), book.getTitle(), book.getAuthor());
-                kafkaProducerService.sendBookEvent(event);
-            }
-            
-            return true;
-        } finally {
-            sample.stop(addBookTimer);
+        if (!uniqueBooks.add(book)) {
+            // Handle duplicate attempt with manual counter since annotation won't trigger
+            meterRegistry.counter("library.books.duplicate.attempts.total", 
+                    "description", "Total number of duplicate book addition attempts").increment();
+            return false; // duplicate
         }
+        books.add(book);
+        borrowCounts.put(book, 0);
+        
+        // Send Kafka event for book addition (if Kafka is enabled)
+        if (kafkaProducerService != null) {
+            BookEvent event = new BookEvent("BOOK_ADDED", 
+                generateBookId(book), book.getTitle(), book.getAuthor());
+            kafkaProducerService.sendBookEvent(event);
+        }
+        
+        return true;
     }
 
     public synchronized Optional<Book> findByTitle(String title) {
@@ -106,27 +72,23 @@ public class LibraryService {
         return Collections.unmodifiableList(new ArrayList<>(books));
     }
 
+    @Timed(value = "library.borrow.duration", description = "Time taken to process book borrow operations")
+    @Counted(value = "library.books.borrowed.total", description = "Total number of books borrowed")
     public synchronized int borrow(String title) {
-        Timer.Sample sample = Timer.start(meterRegistry);
-        try {
-            Optional<Book> opt = findByTitle(title);
-            if (opt.isEmpty()) return -1;
-            Book b = opt.get();
-            int count = borrowCounts.getOrDefault(b, 0) + 1;
-            borrowCounts.put(b, count);
-            booksBorrowedCounter.increment();
-            
-            // Send Kafka event for book borrowing (if Kafka is enabled)
-            if (kafkaProducerService != null) {
-                BorrowEvent borrowEvent = new BorrowEvent("BOOK_BORROWED", 
-                    title, count, "user-" + System.currentTimeMillis());
-                kafkaProducerService.sendBorrowEvent(borrowEvent);
-            }
-            
-            return count;
-        } finally {
-            sample.stop(borrowOperationTimer);
+        Optional<Book> opt = findByTitle(title);
+        if (opt.isEmpty()) return -1;
+        Book b = opt.get();
+        int count = borrowCounts.getOrDefault(b, 0) + 1;
+        borrowCounts.put(b, count);
+        
+        // Send Kafka event for book borrowing (if Kafka is enabled)
+        if (kafkaProducerService != null) {
+            BorrowEvent borrowEvent = new BorrowEvent("BOOK_BORROWED", 
+                title, count, "user-" + System.currentTimeMillis());
+            kafkaProducerService.sendBorrowEvent(borrowEvent);
         }
+        
+        return count;
     }
     
     public synchronized boolean updateBook(String title, Book updatedBook) {
@@ -161,6 +123,7 @@ public class LibraryService {
         return true;
     }
     
+    @Counted(value = "library.books.removed.total", description = "Total number of books removed from the library")
     public synchronized boolean removeBook(String title) {
         Optional<Book> opt = findByTitle(title);
         if (opt.isEmpty()) return false;
@@ -169,7 +132,6 @@ public class LibraryService {
         books.remove(book);
         uniqueBooks.remove(book);
         borrowCounts.remove(book);
-        booksRemovedCounter.increment();
         
         // Send Kafka event for book removal (if Kafka is enabled)
         if (kafkaProducerService != null) {
