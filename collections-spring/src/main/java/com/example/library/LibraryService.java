@@ -1,11 +1,11 @@
 package com.example.library;
 
+import com.example.config.ObservabilityMetricsService;
 import com.example.kafka.model.BookEvent;
 import com.example.kafka.model.BorrowEvent;
 import com.example.kafka.producer.KafkaProducerService;
 import io.micrometer.core.annotation.Counted;
 import io.micrometer.core.annotation.Timed;
-import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,38 +21,33 @@ public class LibraryService {
     @Autowired(required = false)
     private KafkaProducerService kafkaProducerService;
     
-    // Micrometer metrics registry for gauges only
+    @Autowired
+    private ObservabilityMetricsService observabilityMetricsService;
+    
     private final MeterRegistry meterRegistry;
 
     @Autowired
     public LibraryService(MeterRegistry meterRegistry) {
         this.meterRegistry = meterRegistry;
         
-        // Initialize gauges only - counters and timers are handled by annotations
-        Gauge.builder("library.books", this, LibraryService::getTotalBooks)
-                .description("Current total number of books in the library")
-                .register(meterRegistry);
-                
-        Gauge.builder("library.books.unique", this, LibraryService::getUniqueBooks)
-                .description("Current number of unique books in the library")
-                .register(meterRegistry);
-                
-        Gauge.builder("library.borrow.count", this, LibraryService::getTotalBorrowCount)
-                .description("Current total borrow count across all books")
-                .register(meterRegistry);
+        // Register business data gauges that derive from actual database/memory state
+        // These don't need persistence since they can be recalculated from business data
+        meterRegistry.gauge("library.books.total", books, List::size);
+        meterRegistry.gauge("library.books.unique", uniqueBooks, Set::size);
     }
 
     @Timed(value = "library.add.book.duration", description = "Time taken to add a book")
     @Counted(value = "library.books.added.total", description = "Total number of books added to the library")
     public synchronized boolean addBook(Book book) {
         if (!uniqueBooks.add(book)) {
-            // Handle duplicate attempt with manual counter since annotation won't trigger
-            meterRegistry.counter("library.books.duplicate.attempts.total", 
-                    "description", "Total number of duplicate book addition attempts").increment();
+            // Record duplicate attempt - this is meaningful observability data
+            observabilityMetricsService.recordDuplicateBookAttempt();
             return false; // duplicate
         }
         books.add(book);
         borrowCounts.put(book, 0);
+        
+        // No need to update persistent metrics - the gauges will automatically reflect current state
         
         // Send Kafka event for book addition (if Kafka is enabled)
         if (kafkaProducerService != null) {
@@ -80,6 +75,8 @@ public class LibraryService {
         Book b = opt.get();
         int count = borrowCounts.getOrDefault(b, 0) + 1;
         borrowCounts.put(b, count);
+        
+        // No need to persist borrow count - this is business data that can be derived from database
         
         // Send Kafka event for book borrowing (if Kafka is enabled)
         if (kafkaProducerService != null) {
@@ -132,6 +129,8 @@ public class LibraryService {
         books.remove(book);
         uniqueBooks.remove(book);
         borrowCounts.remove(book);
+        
+        // No need to update persistent metrics - the gauges will automatically reflect current state
         
         // Send Kafka event for book removal (if Kafka is enabled)
         if (kafkaProducerService != null) {
