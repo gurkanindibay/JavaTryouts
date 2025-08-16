@@ -552,9 +552,9 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "books_borrowed_total{application=\"collections-kafka-challenge\"}",
+          "expr": "library_books_duplicate_attempts_total{application=\"collections-kafka-challenge\"}",
           "interval": "",
-          "legendFormat": "Books Borrowed",
+          "legendFormat": "Duplicate Attempts",
           "refId": "A"
         },
         {
@@ -562,14 +562,34 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "rate(http_requests_total{application=\"collections-kafka-challenge\", controller=\"library\"}[5m])",
+          "expr": "library_api_failures_total{application=\"collections-kafka-challenge\"}",
           "interval": "",
-          "legendFormat": "Library API Requests/sec",
+          "legendFormat": "API Failures",
           "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "library_validation_failures_total{application=\"collections-kafka-challenge\"}",
+          "interval": "",
+          "legendFormat": "Validation Failures",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "library_concurrent_access_conflicts_total{application=\"collections-kafka-challenge\"}",
+          "interval": "",
+          "legendFormat": "Access Conflicts",
+          "refId": "D"
         }
       ],
-      "title": "Library Business Metrics",
-      "type": "timeseries"
+      "title": "Observability Metrics - Application Health",
+      "type": "stat"
     },
     {
       "datasource": {

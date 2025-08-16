@@ -5,6 +5,8 @@ import com.example.config.repository.ObservabilityMetricRepository;
 import com.example.kafka.model.ObservabilityMetricEvent;
 import com.example.kafka.producer.KafkaProducerService;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.Counter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,6 +42,9 @@ public class ObservabilityMetricsService {
     // Persistent counters for meaningful observability metrics
     private final Map<String, AtomicLong> persistentCounters = new ConcurrentHashMap<>();
     
+    // Micrometer counters for Prometheus exposure
+    private final Map<String, Counter> micrometerCounters = new ConcurrentHashMap<>();
+    
     // Define which metrics should be persisted - only meaningful observability metrics
     private static final Set<String> PERSISTENT_OBSERVABILITY_METRICS = Set.of(
         "library.books.duplicate.attempts.total",
@@ -67,15 +72,45 @@ public class ObservabilityMetricsService {
             observabilityMetricRepository.findAllCounters().forEach(metric -> {
                 // Only restore metrics that are in our observability metrics set
                 if (PERSISTENT_OBSERVABILITY_METRICS.contains(metric.getMetricName())) {
-                    persistentCounters.put(metric.getMetricName(), new AtomicLong(metric.getMetricValue()));
-                    logger.info("Restored observability counter {}: {}", metric.getMetricName(), metric.getMetricValue());
+                    AtomicLong counter = new AtomicLong(metric.getMetricValue());
+                    persistentCounters.put(metric.getMetricName(), counter);
+                    
+                    // Create a Micrometer counter and set it to the persisted value
+                    String micrometerName = metric.getMetricName().replace(".", "_");
+                    Counter micrometerCounter = Counter.builder(micrometerName)
+                        .description(getMetricDescription(metric.getMetricName()))
+                        .tag("application", "collections-kafka-challenge")
+                        .register(meterRegistry);
+                    
+                    // Increment the counter to match the persisted value
+                    micrometerCounter.increment(metric.getMetricValue());
+                    micrometerCounters.put(metric.getMetricName(), micrometerCounter);
+                    
+                    logger.info("Restored observability counter {} with value {} and registered with Micrometer", 
+                               metric.getMetricName(), metric.getMetricValue());
                 }
             });
             
-            logger.info("Loaded {} persistent observability counters", persistentCounters.size());
+            logger.info("Loaded {} persistent observability counters and registered with Micrometer", persistentCounters.size());
         } catch (Exception e) {
             logger.error("Failed to load persisted observability metrics", e);
         }
+    }
+    
+    /**
+     * Get description for a metric name.
+     */
+    private String getMetricDescription(String metricName) {
+        return switch (metricName) {
+            case "library.books.duplicate.attempts.total" -> "Total number of duplicate book addition attempts";
+            case "library.api.failures.total" -> "Total number of API operation failures";
+            case "library.validation.failures.total" -> "Total number of validation failures";
+            case "library.concurrent.access.conflicts.total" -> "Total number of concurrent access conflicts";
+            case "library.cache.misses.total" -> "Total number of cache misses";
+            case "library.performance.slow.operations.total" -> "Total number of slow operations";
+            case "library.errors.total" -> "Total number of general errors";
+            default -> "Observability metric";
+        };
     }
     
     /**
@@ -85,7 +120,25 @@ public class ObservabilityMetricsService {
      */
     public void incrementObservabilityCounter(String metricName) {
         if (PERSISTENT_OBSERVABILITY_METRICS.contains(metricName)) {
-            long newValue = persistentCounters.computeIfAbsent(metricName, k -> new AtomicLong(0)).incrementAndGet();
+            AtomicLong counter = persistentCounters.computeIfAbsent(metricName, k -> {
+                AtomicLong newCounter = new AtomicLong(0);
+                // Register new Micrometer counter if it doesn't exist
+                String micrometerName = metricName.replace(".", "_");
+                Counter micrometerCounter = Counter.builder(micrometerName)
+                    .description(getMetricDescription(metricName))
+                    .tag("application", "collections-kafka-challenge")
+                    .register(meterRegistry);
+                micrometerCounters.put(metricName, micrometerCounter);
+                return newCounter;
+            });
+            
+            long newValue = counter.incrementAndGet();
+            
+            // Also increment the Micrometer counter
+            Counter micrometerCounter = micrometerCounters.get(metricName);
+            if (micrometerCounter != null) {
+                micrometerCounter.increment();
+            }
             
             // Send event to Kafka for async persistence
             ObservabilityMetricEvent event = new ObservabilityMetricEvent(metricName, newValue, "INCREMENT");
@@ -107,9 +160,6 @@ public class ObservabilityMetricsService {
      */
     public void recordDuplicateBookAttempt() {
         incrementObservabilityCounter("library.books.duplicate.attempts.total");
-        // Also increment the Micrometer counter for real-time monitoring
-        meterRegistry.counter("library.books.duplicate.attempts.total", 
-                "description", "Total number of duplicate book addition attempts").increment();
     }
     
     /**
@@ -117,9 +167,6 @@ public class ObservabilityMetricsService {
      */
     public void recordApiFailure(String operation) {
         incrementObservabilityCounter("library.api.failures.total");
-        meterRegistry.counter("library.api.failures.total", 
-                "operation", operation,
-                "description", "Total number of API operation failures").increment();
     }
     
     /**
@@ -127,9 +174,6 @@ public class ObservabilityMetricsService {
      */
     public void recordValidationFailure(String validationType) {
         incrementObservabilityCounter("library.validation.failures.total");
-        meterRegistry.counter("library.validation.failures.total", 
-                "type", validationType,
-                "description", "Total number of validation failures").increment();
     }
     
     /**
@@ -137,7 +181,5 @@ public class ObservabilityMetricsService {
      */
     public void recordConcurrentAccessConflict() {
         incrementObservabilityCounter("library.concurrent.access.conflicts.total");
-        meterRegistry.counter("library.concurrent.access.conflicts.total", 
-                "description", "Total number of concurrent access conflicts").increment();
     }
 }

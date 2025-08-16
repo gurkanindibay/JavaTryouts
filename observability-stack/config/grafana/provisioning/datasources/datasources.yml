@@ -4,6 +4,7 @@ datasources:
   # Prometheus for metrics
   - name: Prometheus
     type: prometheus
+    uid: prometheus
     access: proxy
     url: http://prometheus:9090
     isDefault: true
@@ -12,6 +13,7 @@ datasources:
   # Tempo for traces
   - name: Tempo
     type: tempo
+    uid: tempo
     access: proxy
     url: http://tempo:3200
     editable: true
@@ -41,6 +43,7 @@ datasources:
   # Elasticsearch for logs
   - name: Elasticsearch
     type: elasticsearch
+    uid: elasticsearch
     access: proxy
     url: http://elasticsearch:9200
     database: "logs-*"
