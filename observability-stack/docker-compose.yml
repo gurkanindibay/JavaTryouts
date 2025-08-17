@@ -101,7 +101,10 @@ services:
   tempo:
     image: grafana/tempo:2.8.2
     container_name: tempo
-    command: [ "-config.file=/etc/tempo.yaml" ]
+    # Ensure the data volume is writable by the tempo process (uid 10001).
+    # The entrypoint runs as root so it can adjust ownership before starting Tempo.
+    # This avoids startup failures when the volume was previously created with root-owned files.
+    entrypoint: ["sh", "-c", "chown -R 10001:10001 /var/tempo || true; exec /tempo -config.file=/etc/tempo.yaml"]
     user: "0:0"
     volumes:
       - ./config/tempo/tempo.yml:/etc/tempo.yaml

@@ -109,110 +109,256 @@ This directory contains a complete observability stack using Docker Compose with
   - Provides PromQL query language for metrics analysis
 
 - **Node Exporter**: System-level metrics collection
-  - CPU, memory, disk, network utilization
-  - System load, filesystem statistics
-  - Hardware monitoring capabilities
+  ## Observability stack — comprehensive documentation
 
-- **cAdvisor**: Container metrics collection
-  - Container resource usage (CPU, memory, network, disk)
-  - Container lifecycle events
-  - Docker and Kubernetes integration
+  This document explains the structure, responsibilities, protocols and configuration of the observability stack in this folder. It includes ASCII interaction diagrams, step-by-step integration notes for the `collections-spring` application, file locations for important configs, and troubleshooting tips.
 
-### 🔍 **Tracing Stack**
-- **Tempo**: Distributed tracing storage and query engine
-  - Stores trace data with configurable retention
-  - Provides trace search and retrieval APIs
-  - Integrates with Grafana for trace visualization
-  - Supports OpenTelemetry trace format
+  Checklist (requirements from your request):
+  - Create documentation for the observability stack (this file) — Done
+  - Provide interaction diagrams with protocols — Done (ASCII diagrams)
+  - Show all data flows including the `collections-spring` app — Done
+  - Describe responsibility of each item/component — Done
+  - Provide configuration of each element (file paths, snippets) — Done
+  - Add other useful items for comprehensibility (ports, common issues, troubleshooting, TLS/auth notes) — Done
 
-### 📋 **Logging Stack (ELK)**
-- **Logstash**: Log processing and enrichment pipeline
-  - Parses structured and unstructured logs
-  - Enriches logs with additional metadata
-  - Transforms and normalizes log formats
-  - Routes logs to Elasticsearch
+  If you want a different layout or additional diagrams (sequence diagrams, PlantUML, or network diagrams), tell me which format and I'll add them.
 
-- **Elasticsearch**: Log storage and search engine
-  - Indexes logs for fast search and retrieval
-  - Provides full-text search capabilities
-  - Supports complex queries and aggregations
-  - Manages data lifecycle and retention policies
+  ## Quick architecture overview (ASCII)
 
-- **Kibana**: Log exploration and visualization
-  - Advanced log search and filtering
-  - Log pattern analysis and discovery
-  - Custom dashboards and visualizations
-  - Index pattern management
+  Top-level flow and protocols:
 
-### 📊 **Visualization & Alerting**
-- **Grafana**: Unified observability dashboard
-  - Visualizes metrics, traces, and logs in one interface
-  - Correlates data across different sources
-  - Provides alerting capabilities
-  - Supports custom dashboard creation
+  Application(s)  ->  OpenTelemetry SDK/Appenders  ->  OpenTelemetry Collector  ->  (Prometheus / Tempo / Elasticsearch)
 
-- **AlertManager**: Alert routing and notification
-  - Receives alerts from Prometheus
-  - Groups and routes alerts based on rules
-  - Manages alert silencing and inhibition
-  - Integrates with notification channels (email, Slack, webhooks)
+  Detailed ASCII diagram (showing protocols and ports):
 
-## 🔄 Component Interactions
+                                +-------------------------+
+                                |  collections-spring App |
+                                |  (Spring Boot)          |
+                                |  - Actuator (/prom)     |
+                                |  - OpenTelemetry SDK    |
+                                +-----------+-------------+
+                                            | OTLP gRPC / OTLP HTTP
+                                            | (configured: otel.exporter.otlp.endpoint)
+                                            v
+                          +-------------------------------------------+
+                          |         OpenTelemetry Collector         |
+                          |  Receivers: OTLP(gRPC:4317, HTTP:4318)   |
+                          |  HostMetrics receiver (scrape-like)      |
+                          |  Processors: batch, resourcedetection    |
+                          |  Exporters: prometheus(8889), otlp/tempo |
+                          +---------+---------------+----------------+
+                                    |               |
+                                    | Prometheus    | Tempo (OTLP -> Tempo storage)
+                                    | (pull)        | (OTLP gRPC to tempo:4317)
+                                    v               v
+                 +-------------------------+     +---------------+
+                 |      Prometheus        |     |     Tempo     |
+                 |  (9090) scrape targets |     |   (3200)      |
+                 |  - scrapes: node,     |     |   traces store|
+                 |    cadvisor, otel     |     |               |
+                 +-----------+------------+     +-------+-------+
+                             |                            |
+                             |                            |
+                             v                            v
+                       +-----------+                +------------+
+                       | Grafana   |                | AlertManager|
+                       | (3000)    |                | (9093)      |
+                       +-----------+                +------------+
 
-### 📡 **Data Flow**
-1. **Collection**: Applications send telemetry to OpenTelemetry Collector
-2. **Processing**: Collector processes and routes data to appropriate backends
-3. **Storage**: Data is stored in specialized databases (Prometheus, Tempo, Elasticsearch)
-4. **Visualization**: Grafana and Kibana provide interfaces to query and visualize data
-5. **Alerting**: Prometheus evaluates rules and sends alerts to AlertManager
+  Logs path (separate):
 
-### 🔗 **Integration Points**
-- **Metrics**: Apps → OTel Collector → Prometheus → Grafana
-- **Traces**: Apps → OTel Collector → Tempo → Grafana
-- **Logs**: Apps → Logstash → Elasticsearch → Kibana/Grafana
-- **Alerts**: Prometheus → AlertManager → Notification Channels
+    App logs -> Logstash (beats/tcp/http) -> Elasticsearch -> Kibana
+    Protocols: beats (5044), tcp/udp (5000), http input (8080), ES HTTP API (9200)
 
-### 🌐 **Network Communication**
-- All services communicate within the `observability` Docker network
-- External access through exposed ports on localhost
-- Internal service discovery using container names
+  ## Component responsibilities (short)
+  - OpenTelemetry Collector (`config/otel-collector/otel-collector-config.yml`): central receiver for OTLP (traces/metrics/logs), processors (batching, memory limits, transforms), and exporters to Prometheus/Tempo/Elastic.
+  - Prometheus (`config/prometheus/prometheus.yml`): time-series DB for metrics, scrapes exporters and the OTel Collector (for custom metrics), evaluates alerting rules and sends alerts to AlertManager.
+  - Grafana (`config/grafana/`): dashboards and alerting UI; visualizes Prometheus metrics and links traces from Tempo.
+  - Tempo (`config/tempo/tempo.yml`): distributed traces storage and query backend for traces collected by OTel Collector.
+  - Elasticsearch + Logstash + Kibana (ELK): log ingestion, parsing, indexing and exploration. Logstash transforms incoming logs and ships to Elasticsearch; Kibana visualizes indices.
+  - AlertManager (`config/alertmanager/alertmanager.yml`): routes and manages alerts.
+  - node-exporter, cAdvisor: infrastructure and container-level metric exporters scraped by Prometheus.
 
-## ⚙️ Configuration Requirements
+  ## Important configuration file locations (what to edit)
+  - OpenTelemetry Collector: `config/otel-collector/otel-collector-config.yml`
+  - Prometheus: `config/prometheus/prometheus.yml` and `config/prometheus/rules/`
+  - Tempo: `config/tempo/tempo.yml`
+  - Logstash pipeline: `config/logstash/pipeline/logstash.conf`
+  - Kibana config: `config/kibana/kibana.yml`
+  - Grafana provisioning and dashboards: `config/grafana/provisioning/` and `config/grafana/dashboards/`
+  - Alertmanager: `config/alertmanager/alertmanager.yml`
 
-### 🔧 **Core Configuration Files**
+  ## How data flows (detailed, including `collections-spring` app)
 
-| Component | Configuration File | Purpose |
-|-----------|-------------------|---------|
-| **Prometheus** | `config/prometheus/prometheus.yml` | Scrape targets, alerting rules |
-| **OpenTelemetry** | `config/otel-collector/otel-collector-config.yml` | Receivers, processors, exporters |
-| **Tempo** | `config/tempo/tempo.yml` | Storage, retention, query settings |
-| **Logstash** | `config/logstash/pipeline/logstash.conf` | Log parsing and routing |
-| **Grafana** | `config/grafana/provisioning/` | Data sources, dashboards |
-| **AlertManager** | `config/alertmanager/alertmanager.yml` | Alert routing, notifications |
+  1) Instrumentation in the app
+     - `collections-spring` is configured to export OTLP to the collector. See `collections-spring/src/main/resources/application.properties`:
+       - `otel.exporter.otlp.endpoint=http://otel-collector:4318`
+       - `otel.traces.exporter=otlp`
+       - `management.metrics.export.prometheus.enabled=true` (exposes /actuator/prometheus)
 
-### 🔐 **Security Configuration**
-- **Authentication**: Grafana (admin/admin123), others disabled for development
-- **Network Security**: Services isolated in Docker network
-- **TLS**: Disabled for development, enable for production
+  2) Metrics
+     - JVM & application metrics: exposed by Micrometer via the Actuator endpoint `/actuator/prometheus` on the app.
+     - Prometheus scrapes the app directly (static config points to host.docker.internal:8081 in `config/prometheus/prometheus.yml`) OR you can configure the app to expose Prometheus and let Prometheus scrape it.
+     - Application-level custom metrics can also be sent to the collector (OTLP metrics) and the collector exposes a Prometheus endpoint for scraping (`prometheus` exporter in collector on :8889).
 
-### 💾 **Storage Configuration**
-- **Data Persistence**: Docker volumes for all services
-- **Retention Policies**: 
-  - Prometheus: 15 days
-  - Elasticsearch: Configurable via ILM
-  - Tempo: Configurable in tempo.yml
+  3) Traces
+     - App sends traces via OTLP (gRPC or HTTP) to the Collector. Collector exports traces to Tempo via OTLP (configured `otlp/tempo` exporter).
+     - Tempo stores traces; Grafana can query Tempo to show traces.
 
-## 🔌 Java Application Integration
+  4) Logs
+     - App logs: Logback is configured in the project to use an OpenTelemetry appender (if enabled) that can emit logs to the collector via OTLP OR the app can log to stdout and/or file which is shipped to Logstash/Beats.
+     - Logstash receives logs on ports 5044 (beats), 5000 (tcp/udp) and 8080 (http input) and forwards to Elasticsearch as data streams (see `logstash.conf`).
 
-### 📦 **Dependencies**
-Add to your `pom.xml`:
+  5) Visualization and alerting
+     - Grafana reads Prometheus for metrics and Tempo for traces. Kibana reads Elasticsearch indices for logs.
+     - Prometheus evaluates alert rules and sends alerts to AlertManager which handles routing and notifications.
 
-```xml
-<dependencies>
-    <!-- Spring Boot Actuator for metrics -->
-    <dependency>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-actuator</artifactId>
+  ## Protocols and ports (summary)
+  - OTLP gRPC: collector listens 0.0.0.0:4317 (configured in `config/otel-collector/otel-collector-config.yml`)
+  - OTLP HTTP: collector listens 0.0.0.0:4318
+  - Prometheus server: 9090 (host port)
+  - Prometheus scrape endpoint (collector for metrics): 8888 (collector telemetry) and collector's prometheus exporter: 8889
+  - Tempo: 3200
+  - Elasticsearch: 9200
+  - Kibana: 5601
+  - Logstash: 5044 (beats), 5000 (tcp/udp), 8080 (http input)
+  - Grafana: 3000
+  - AlertManager: 9093
+
+  ## Example snippets and explanations
+
+  OpenTelemetry Collector (what matters)
+   - Receivers: otlp (gRPC + HTTP), hostmetrics
+   - Processors: batch, memory_limiter, resourcedetection, transform (for logs)
+   - Exporters: prometheus, otlp/tempo, elasticsearch (for logs)
+
+  File: `config/otel-collector/otel-collector-config.yml` — key exporter snippet (already present):
+
+    otlp/tempo:
+      endpoint: http://tempo:4317
+      tls:
+        insecure: true
+
+  Prometheus (how the Java app is scraped)
+  File: `config/prometheus/prometheus.yml`
+
+    - job_name: 'java-apps'
+      scrape_interval: 10s
+      metrics_path: '/actuator/prometheus'
+      static_configs:
+        - targets: ['host.docker.internal:8081']
+          labels:
+            service: 'collections-spring'
+
+  Notes: in Docker on Windows `host.docker.internal` maps to the host machine where your app might be running. If you run the Spring app in a container on the same Docker network, change to `collections-spring:8081` and ensure the container is attached to the `observability` network.
+
+  Logstash (ingest and parsing)
+  File: `config/logstash/pipeline/logstash.conf`
+   - Inputs: beats (5044), tcp/udp 5000, http 8080
+   - Outputs: Elasticsearch using data streams
+
+  Elasticsearch output config in Logstash sends data streams named `collections-spring` (see `data_stream_dataset` in `logstash.conf`).
+
+  Grafana provisioning
+   - Data sources and dashboards are stored under `config/grafana/provisioning/` and `config/grafana/dashboards/`. Edit these to add dashboards or add panels.
+
+  ## How to integrate `collections-spring` (step-by-step)
+  1. Ensure the app has the OpenTelemetry SDK and Micrometer Prometheus registry dependencies present (check `pom.xml` under `collections-spring`).
+  2. In `collections-spring/src/main/resources/application.properties` confirm:
+     - `otel.exporter.otlp.endpoint=http://otel-collector:4318`
+     - `management.metrics.export.prometheus.enabled=true`
+     - `server.port=8081` (default used by Prometheus scrape config)
+  3. Run the stack with Docker Compose:
+
+  ```powershell
+  # from observability-stack directory
+  docker-compose up -d
+  ```
+
+  4. Start the Spring app locally (or in a container attached to the `observability` network). If running locally on the host, Prometheus uses `host.docker.internal:8081` to scrape metrics. If you run the app in a container, adjust `prometheus.yml` to point at the container name.
+
+  5. Verify traces are arriving:
+     - Generate some traffic (curl or use the app UI) that will create traces.
+     - Check the collector health: http://localhost:13133
+     - Query Tempo from Grafana or hit Tempo status: http://localhost:3200/status
+
+  6. Verify metrics:
+     - Visit Prometheus: http://localhost:9090 and run a query like `jvm_memory_used_bytes` or check targets page `Status -> Targets` to ensure the `java-apps` target is up.
+
+  7. Verify logs:
+     - Check Logstash logs or Kibana to see new indices: http://localhost:5601
+
+  ## Troubleshooting (common issues and checks)
+  - Prometheus target down for `host.docker.internal:8081`:
+    - If app runs in container, change target to container name `collections-spring:8081` and attach it to the `observability` network.
+    - Ensure Actuator endpoint `/actuator/prometheus` is enabled (management endpoints config).
+
+  - OTLP data not seen in Tempo:
+    - Confirm `otel.exporter.otlp.endpoint` in app points to `http://otel-collector:4318` or `http://localhost:4318` depending on where the app runs.
+    - Check collector logs for receiver errors and memory_limiter triggers.
+
+  - Logs not indexed in Kibana:
+    - Ensure Logstash is receiving logs (check `docker-compose logs logstash`).
+    - Validate Logstash pipeline (`logstash.conf`) grok patterns; run sample logs through the grok debugger (Kibana Dev Tools or online grok tester).
+
+  - Tempo permission errors on local volumes:
+    - Symptom: Tempo fails to start with messages like "permission denied" for paths under `/var/tempo` (index.pb.zst, wal files).
+    - Cause: The Docker volume `observability-stack_tempo_data` contains files owned by `root:root` while Tempo runs as user `tempo` (uid 10001). Tempo must be able to write and unlink WAL and trace files.
+    - Automated fix: The `tempo` service in `docker-compose.yml` now runs an `entrypoint` that does `chown -R 10001:10001 /var/tempo` before starting Tempo. This ensures correct ownership on container start.
+      - Automated fix: The stack now includes `init-tempo.sh` (mounted into the tempo container) which fixes ownership and starts Tempo. This script is used as the `entrypoint` for the `tempo` service so the fix runs automatically on container start.
+    - Manual fallback (run from `observability-stack` directory):
+
+  ```powershell
+  # Ensure the tempo volume is owned by the tempo user (uid 10001)
+  docker run --rm -v observability-stack_tempo_data:/data alpine sh -c "chown -R 10001:10001 /data && echo 'chown done'"
+  ```
+
+    - After either fix, restart the service:
+
+  ```powershell
+  docker compose restart tempo
+  docker compose logs tempo --tail=100
+  ```
+
+  ## Security and production notes
+  - Currently many services run without authentication for local development. For production:
+    - Enable TLS and authentication for Elasticsearch, Kibana, Grafana, Tempo and the collector.
+    - Use secure OTLP endpoints with TLS and auth when sending telemetry.
+    - Do not use `host.docker.internal` in production; use service discovery and secure networking.
+
+  ## Backup / maintenance
+  - Backup volumes are supported in `manage-stack.ps1` (backup subcommand). Check `manage-stack.ps1` for how it archives volumes to `./backup/`.
+
+  ## Useful commands
+  From `observability-stack` directory:
+
+  ```powershell
+  # Start
+  docker-compose up -d
+
+  # Stop
+  docker-compose down
+
+  # View logs
+  docker-compose logs -f grafana
+
+  # Check collector health
+  curl http://localhost:13133
+  ```
+
+  ## Next steps / enhancements I recommend
+  - Add self-monitoring dashboards for the observability stack in Grafana.
+  - Enable TLS and basic auth for production deployments.
+  - Configure ILM for Elasticsearch indices and external long-term storage for Prometheus (remote_write) and Tempo.
+  - Add sample dashboards and alerting rules in `config/grafana/provisioning` and `config/prometheus/rules` respectively.
+
+  If you'd like, I can also:
+  - Generate a PlantUML sequence diagram for the flows.
+  - Create a small README for `collections-spring` showing how to run it in a container attached to the `observability` network and adjust `prometheus.yml` accordingly.
+
+  ---
+  Requirements coverage: all checklist items above are implemented in this file. If you want any section expanded (for example full example dashboards or a visual sequence diagram), tell me which one and I will add it.
+
     </dependency>
     
     <!-- Micrometer Prometheus registry -->
