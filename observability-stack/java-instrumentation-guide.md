@@ -1,386 +1,202 @@
 # Java Application OpenTelemetry Configuration
 
-This directory contains example configurations for instrumenting your Java applications with OpenTelemetry.
+This document shows recommended OpenTelemetry configuration for Spring Boot services and also documents the concrete settings used by the `collections-spring` example in this repository.
 
-## 🔧 Spring Boot Configuration
+I'll keep general examples, but the bottom section titled "Project-specific settings" lists the exact values used in this repo so you can copy/paste them.
 
-### Maven Dependencies
+## 🔧 Spring Boot Configuration (example)
 
-Add these dependencies to your `pom.xml`:
+### Maven dependencies (example)
+
+The project in this repository uses the OpenTelemetry Spring Boot starter and OTLP exporter. Example dependencies (use the versions declared in your project's `pom.xml` or the `Project-specific settings` section below):
 
 ```xml
 <dependencies>
-    <!-- Spring Boot Actuator for metrics endpoint -->
+    <!-- Actuator -->
     <dependency>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-actuator</artifactId>
     </dependency>
-    
+
     <!-- Micrometer Prometheus registry -->
     <dependency>
         <groupId>io.micrometer</groupId>
         <artifactId>micrometer-registry-prometheus</artifactId>
     </dependency>
-    
-    <!-- OpenTelemetry Spring Boot Starter -->
+
+    <!-- OpenTelemetry Spring Boot Starter (project uses the starter) -->
     <dependency>
         <groupId>io.opentelemetry.instrumentation</groupId>
         <artifactId>opentelemetry-spring-boot-starter</artifactId>
-        <version>1.29.0-alpha</version>
+        <!-- version is managed in the project's pom properties -->
     </dependency>
-    
-    <!-- OpenTelemetry Exporter OTLP -->
+
+    <!-- OTLP exporter -->
     <dependency>
         <groupId>io.opentelemetry</groupId>
         <artifactId>opentelemetry-exporter-otlp</artifactId>
     </dependency>
-    
-    <!-- Logback OTLP Appender for logs -->
+
+    <!-- Logback / JSON helpers (optional) -->
     <dependency>
-        <groupId>io.opentelemetry.instrumentation</groupId>
-        <artifactId>opentelemetry-logback-appender-1.0</artifactId>
-        <version>1.29.0-alpha</version>
+        <groupId>net.logstash.logback</groupId>
+        <artifactId>logstash-logback-encoder</artifactId>
     </dependency>
 </dependencies>
 ```
 
-### Application Properties
+### Application properties (recommended examples)
 
-Add to your `application.properties`:
+Below are common properties. This repo's concrete settings are listed in the "Project-specific settings" section.
 
 ```properties
-# Application Info
+# Application
 spring.application.name=your-service-name
-info.app.name=${spring.application.name}
-info.app.version=@project.version@
 
-# Actuator Configuration
-management.endpoints.web.exposure.include=health,info,metrics,prometheus,env
-management.endpoint.health.show-details=always
-management.endpoint.prometheus.enabled=true
-management.metrics.export.prometheus.enabled=true
-management.metrics.distribution.percentiles-histogram.http.server.requests=true
-management.metrics.distribution.percentiles.http.server.requests=0.5,0.9,0.95,0.99
+# Actuator
+management.endpoints.web.exposure.include=health,info,metrics,prometheus
 
-# OpenTelemetry Configuration
+# OpenTelemetry resource attributes & service name
 otel.service.name=${spring.application.name}
-otel.service.version=@project.version@
-otel.service.instance.id=${spring.application.name}-${random.uuid}
 otel.resource.attributes=environment=development,team=backend
 
-# OTLP Exporter Configuration
-otel.exporter.otlp.endpoint=http://localhost:4317
-otel.exporter.otlp.protocol=grpc
+# OTLP exporter - note: 4317 is OTLP/gRPC, 4318 is OTLP/HTTP
+# Use the endpoint your collector exposes. In docker-compose we usually point to the collector service.
+otel.exporter.otlp.endpoint=http://otel-collector:4318
 otel.exporter.otlp.compression=gzip
 
-# Traces Configuration
+# Traces
 otel.traces.exporter=otlp
-otel.traces.sampler=parentbased_traceidratio
-otel.traces.sampler.arg=1.0
+# Optional sampler example (parent-based, sample all):
+# otel.traces.sampler=parentbased_traceidratio
+# otel.traces.sampler.arg=1.0
 
-# Metrics Configuration
-otel.metrics.exporter=otlp,prometheus
-otel.metric.export.interval=30s
+# Metrics: choose how you export metrics. Two common approaches:
+#  - Micrometer Prometheus (recommended when using Prometheus): enable the Prometheus endpoint
+#  - OTLP metrics: send metrics to the collector via OTLP
 
-# Logs Configuration  
+# Example (Micrometer/Prometheus):
+management.metrics.export.prometheus.enabled=true
+otel.metrics.exporter=none
+
+# Example (OTLP metrics):
+# otel.metrics.exporter=otlp
+
+# Logs
 otel.logs.exporter=otlp
-otel.instrumentation.logback-appender.experimental-log-attributes=true
 
-# Instrumentation Configuration
+# Propagators (project uses tracecontext,baggage; add b3 if you need B3 compatibility)
+otel.propagators=tracecontext,baggage
+
+# Instrumentation toggles (enable only what you need)
+otel.instrumentation.spring-web.enabled=true
 otel.instrumentation.spring-webmvc.enabled=true
-otel.instrumentation.spring-webflux.enabled=true
 otel.instrumentation.jdbc.enabled=true
-otel.instrumentation.hikaricp.enabled=true
-otel.instrumentation.lettuce.enabled=true
-otel.instrumentation.redis.enabled=true
 otel.instrumentation.kafka.enabled=true
-
-# Propagation
-otel.propagators=tracecontext,baggage,b3
+otel.instrumentation.logback-appender.enabled=true
 ```
 
-### Logback Configuration
+### Logback (short guidance)
 
-Create or update `src/main/resources/logback-spring.xml`:
+This repository includes a canonical `logback-spring.xml` for the application. The file enables an OpenTelemetry log appender and also keeps console/file appenders for local debugging. Prefer the canonical file over duplicating a large example in this guide.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    
-    <!-- Console Appender with colored output -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>${CONSOLE_LOG_PATTERN}</pattern>
-        </encoder>
-    </appender>
-    
-    <!-- File Appender -->
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/application.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/application.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
-            <maxFileSize>100MB</maxFileSize>
-            <maxHistory>30</maxHistory>
-            <totalSizeCap>3GB</totalSizeCap>
-        </rollingPolicy>
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - [%X{traceId},%X{spanId}] %msg%n</pattern>
-        </encoder>
-    </appender>
-    
-    <!-- OpenTelemetry OTLP Appender -->
-    <appender name="OTLP" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
-        <resource>
-            <attribute>
-                <key>service.name</key>
-                <value>${spring.application.name}</value>
-            </attribute>
-        </resource>
-        <includeInstrumentationScopeInfo>true</includeInstrumentationScopeInfo>
-        <captureExperimentalAttributes>true</captureExperimentalAttributes>
-        <captureCodeAttributes>true</captureCodeAttributes>
-        <captureMarkerAttribute>true</captureMarkerAttribute>
-        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
-        <captureLoggerContext>true</captureLoggerContext>
-        <captureMdcAttributes>*</captureMdcAttributes>
-    </appender>
-    
-    <!-- Root Logger -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-        <appender-ref ref="OTLP"/>
-    </root>
-    
-    <!-- Application-specific loggers -->
-    <logger name="com.example" level="DEBUG"/>
-    <logger name="org.springframework.web" level="DEBUG"/>
-    <logger name="org.springframework.transaction" level="DEBUG"/>
-    
-    <!-- Reduce noise from libraries -->
-    <logger name="org.springframework.boot.autoconfigure" level="WARN"/>
-    <logger name="org.hibernate" level="WARN"/>
-    <logger name="com.zaxxer.hikari" level="WARN"/>
-    
-    <springProfile name="production">
-        <root level="WARN">
-            <appender-ref ref="FILE"/>
-            <appender-ref ref="OTLP"/>
-        </root>
-    </springProfile>
-</configuration>
-```
+- Canonical file: `collections-spring/src/main/resources/logback-spring.xml`
+- The logger pattern includes MDC keys for trace/span ids (for local correlation): `%X{traceId}`, `%X{spanId}`
 
-## 🚀 Manual Instrumentation Examples
+If you need a minimal OTLP appender snippet, use the project file as reference; the starter and appender versions are managed in the project's `pom.xml`.
 
-### Custom Metrics
+## 🚀 Instrumentation approaches: agent vs starter
 
-```java
-import io.micrometer.core.instrument.Counter;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Timer;
-import org.springframework.stereotype.Service;
+Two common ways to instrument Java apps with OpenTelemetry:
 
-@Service
-public class BusinessService {
-    
-    private final Counter orderCounter;
-    private final Timer orderProcessingTimer;
-    
-    public BusinessService(MeterRegistry meterRegistry) {
-        this.orderCounter = Counter.builder("orders.processed")
-            .description("Number of orders processed")
-            .tag("service", "business")
-            .register(meterRegistry);
-            
-        this.orderProcessingTimer = Timer.builder("order.processing.time")
-            .description("Time taken to process an order")
-            .register(meterRegistry);
-    }
-    
-    public void processOrder(Order order) {
-        Timer.Sample sample = Timer.start();
-        try {
-            // Business logic here
-            Thread.sleep(100); // Simulate processing
-            orderCounter.increment();
-        } catch (Exception e) {
-            // Handle exception
-        } finally {
-            sample.stop(orderProcessingTimer);
-        }
-    }
-}
-```
+- Java agent (auto-instrumentation): attach `-javaagent:opentelemetry-javaagent.jar` to the JVM. This works without changing application code and is convenient for containers and third-party JARs.
+- Starter/library (in-process): add `opentelemetry-spring-boot-starter` and exporter dependencies to your `pom.xml`. This is the approach used by the `collections-spring` project in this repo.
 
-### Custom Traces
+Both approaches can be used together (agent + starter), but pick one to avoid duplicate instrumentation.
 
-```java
-import io.opentelemetry.api.GlobalOpenTelemetry;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.Tracer;
-import io.opentelemetry.context.Scope;
-import org.springframework.stereotype.Service;
+## � Testing your instrumentation (examples)
 
-@Service
-public class PaymentService {
-    
-    private final Tracer tracer = GlobalOpenTelemetry.getTracer("payment-service");
-    
-    public PaymentResult processPayment(PaymentRequest request) {
-        Span span = tracer.spanBuilder("payment.process")
-            .setAttribute("payment.amount", request.getAmount())
-            .setAttribute("payment.currency", request.getCurrency())
-            .setAttribute("customer.id", request.getCustomerId())
-            .startSpan();
-            
-        try (Scope scope = span.makeCurrent()) {
-            // Add events
-            span.addEvent("payment.validation.start");
-            validatePayment(request);
-            span.addEvent("payment.validation.complete");
-            
-            span.addEvent("payment.processing.start");
-            PaymentResult result = executePayment(request);
-            span.addEvent("payment.processing.complete");
-            
-            // Add result attributes
-            span.setAttribute("payment.status", result.getStatus());
-            span.setAttribute("payment.transaction.id", result.getTransactionId());
-            
-            return result;
-        } catch (Exception e) {
-            span.recordException(e);
-            span.setStatus(StatusCode.ERROR, e.getMessage());
-            throw e;
-        } finally {
-            span.end();
-        }
-    }
-}
-```
-
-### Structured Logging with Trace Context
-
-```java
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-import org.springframework.stereotype.Service;
-
-@Service
-public class OrderService {
-    
-    private static final Logger logger = LoggerFactory.getLogger(OrderService.class);
-    
-    public void createOrder(CreateOrderRequest request) {
-        // MDC will automatically include trace context
-        MDC.put("user.id", request.getUserId());
-        MDC.put("order.type", request.getOrderType());
-        
-        try {
-            logger.info("Creating order for user: {}", request.getUserId());
-            
-            // Business logic
-            Order order = new Order(request);
-            
-            logger.info("Order created successfully: orderId={}, amount={}", 
-                       order.getId(), order.getAmount());
-            
-        } catch (Exception e) {
-            logger.error("Failed to create order for user: {}", request.getUserId(), e);
-            throw e;
-        } finally {
-            MDC.clear();
-        }
-    }
-}
-```
-
-## 🔍 Testing Your Instrumentation
-
-### Health Check Endpoint
-
-Create a custom health indicator:
-
-```java
-import org.springframework.boot.actuate.health.Health;
-import org.springframework.boot.actuate.health.HealthIndicator;
-import org.springframework.stereotype.Component;
-
-@Component
-public class ObservabilityHealthIndicator implements HealthIndicator {
-    
-    @Override
-    public Health health() {
-        // Check if telemetry is working
-        boolean telemetryWorking = checkTelemetryConnection();
-        
-        if (telemetryWorking) {
-            return Health.up()
-                .withDetail("telemetry", "connected")
-                .withDetail("traces", "enabled")
-                .withDetail("metrics", "enabled")
-                .build();
-        } else {
-            return Health.down()
-                .withDetail("telemetry", "disconnected")
-                .build();
-        }
-    }
-    
-    private boolean checkTelemetryConnection() {
-        // Implement connection check logic
-        return true;
-    }
-}
-```
-
-### Testing Commands
+Quick health & metrics checks (adjust port if your app uses a different server.port):
 
 ```bash
-# Test metrics endpoint
-curl http://localhost:8080/actuator/prometheus
-
-# Test health endpoint
-curl http://localhost:8080/actuator/health
-
-# Generate test data
-curl -X POST http://localhost:8080/api/orders \
-  -H "Content-Type: application/json" \
-  -d '{"userId":"123","amount":99.99,"currency":"USD"}'
+# Example when server.port=8081 (this project uses 8081)
+curl http://localhost:8081/actuator/prometheus
+curl http://localhost:8081/actuator/health
 ```
 
-## 📊 Docker Integration
+Generate test traffic by calling an application endpoint (adjust as needed):
 
-If you want to run your Java app in Docker alongside the observability stack:
+```bash
+curl -X POST http://localhost:8081/api/orders \
+    -H "Content-Type: application/json" \
+    -d '{"userId":"123","amount":99.99,"currency":"USD"}'
+```
+
+## 📊 Docker Integration (agent example)
+
+If you run the Java agent in Docker, attach the agent jar and point OTEL env vars to the collector (collector usually runs in docker-compose):
 
 ```dockerfile
-FROM openjdk:17-jre-slim
+FROM eclipse-temurin:21-jre-focal
 
 # Add OpenTelemetry Java agent
-ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/
+ADD https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/latest/download/opentelemetry-javaagent.jar /app/opentelemetry-javaagent.jar
 COPY target/your-app.jar /app/app.jar
-
 WORKDIR /app
 
-# Run with OpenTelemetry agent
+# Run with Java agent; use env vars to configure OTLP endpoint if preferred
 ENTRYPOINT ["java", "-javaagent:opentelemetry-javaagent.jar", "-jar", "app.jar"]
 ```
 
-Then add to your docker-compose.yml:
+And in `docker-compose.yml` you can set environment variables for the service:
 
 ```yaml
 your-app:
-  build: ../your-app
-  ports:
-    - "8080:8080"
-  environment:
-    - OTEL_SERVICE_NAME=your-app
-    - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-  networks:
-    - observability
-  depends_on:
-    - otel-collector
+    build: ../your-app
+    ports:
+        - "8081:8081"
+    environment:
+        - OTEL_SERVICE_NAME=your-app
+        - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+    networks:
+        - observability
+    depends_on:
+        - otel-collector
 ```
+
+## Project-specific settings (this repository)
+
+The `collections-spring` application in this repo uses these concrete settings. Use these values when running the example locally or in docker-compose.
+
+- `pom.xml` versions (see `collections-spring/pom.xml`):
+    - `opentelemetry.version = 1.42.1`
+    - `opentelemetry-spring-boot.version = 2.8.0`
+
+- Application properties (file: `collections-spring/src/main/resources/application.properties`):
+    - `server.port=8081`
+    - `spring.application.name=collections-kafka-challenge`
+    - `otel.service.name=collections-spring-app`
+    - `otel.service.version=1.0.0`
+    - `otel.resource.attributes=service.name=collections-spring-app,service.version=1.0.0,deployment.environment=local`
+    - `otel.exporter.otlp.endpoint=http://otel-collector:4318` (OTLP/HTTP)
+    - `otel.metrics.exporter=none` (project uses Micrometer/Prometheus)
+    - `management.metrics.export.prometheus.enabled=true`
+    - `otel.instrumentation.logback-appender.enabled=true`
+    - `otel.instrumentation.spring-web.enabled=true`
+    - `otel.instrumentation.jdbc.enabled=true`
+    - `otel.instrumentation.kafka.enabled=true`
+    - `otel.propagators=tracecontext,baggage`
+
+- Logback canonical file: `collections-spring/src/main/resources/logback-spring.xml`
+    - The file enables an OpenTelemetry appender plus console and file appenders.
+    - It uses MDC keys for trace/span correlation: `%X{traceId}`, `%X{spanId}`
+
+## Next steps & options
+
+If you'd like, I can:
+
+1. Update this guide to include a small end-to-end smoke test example that sends a trace to the collector and verifies it in Tempo.
+2. Add env var examples for production vs local.
+3. Replace the guide's long code snippets with direct excerpts from the canonical files.
+
+Which of those would you like me to add now?
