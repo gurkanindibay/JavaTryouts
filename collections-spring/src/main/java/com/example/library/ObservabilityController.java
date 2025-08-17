@@ -1,6 +1,9 @@
 package com.example.library;
 
 import com.example.config.ObservabilityMetricsService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -9,6 +12,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/observability")
+@Tag(name = "Observability", description = "Operations for monitoring and observability metrics")
 public class ObservabilityController {
     
     @Autowired
@@ -22,6 +26,9 @@ public class ObservabilityController {
      * persistent observability metrics vs business data metrics
      */
     @GetMapping("/metrics")
+    @Operation(summary = "Get observability metrics", 
+               description = "Retrieve both observability metrics (persistent operational events) and business metrics (derived from database)")
+    @ApiResponse(responseCode = "200", description = "Metrics retrieved successfully")
     public Map<String, Object> getObservabilityMetrics() {
         Map<String, Object> response = new HashMap<>();
         
@@ -55,6 +62,9 @@ public class ObservabilityController {
      * Simulate some observability events for testing
      */
     @PostMapping("/simulate-events")
+    @Operation(summary = "Simulate observability events", 
+               description = "Generate test observability events for monitoring and alerting validation")
+    @ApiResponse(responseCode = "200", description = "Events simulated successfully")
     public Map<String, String> simulateObservabilityEvents() {
         // Simulate various observability events
         observabilityMetricsService.recordApiFailure("book-lookup");
