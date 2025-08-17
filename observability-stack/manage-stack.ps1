@@ -9,8 +9,6 @@ param(
     [switch]$Follow = $false
 )
 
-$ComposeFile = "docker-compose.yml"
-
 function Write-ColorOutput {
     param(
         [string]$Message,
@@ -92,7 +90,7 @@ function Show-Logs {
     }
 }
 
-function Cleanup-Stack {
+function Clear-Stack {
     Write-ColorOutput "🧹 This will remove all containers, networks, and volumes!" "Red"
     Write-ColorOutput "⚠️  All metrics, logs, and traces will be permanently deleted!" "Red"
     
@@ -141,6 +139,6 @@ switch ($Action) {
     "restart" { Restart-Stack }
     "status" { Show-Status }
     "logs" { Show-Logs }
-    "cleanup" { Cleanup-Stack }
+    "cleanup" { Clear-Stack }
     "backup" { Backup-Data }
 }
