@@ -43,7 +43,14 @@ exporters:
     tls:
       insecure: true
 
-  # For logs, we'll use logging exporter instead of Elasticsearch for now
+  # Elasticsearch logs export
+  elasticsearch:
+    endpoints: [http://elasticsearch:9200]
+    logs_index: "otel-logs"
+    mapping:
+      mode: "ecs"
+
+  # For debugging, we'll keep logging exporter too
   logging:
     verbosity: detailed
 
@@ -69,7 +76,7 @@ service:
     logs:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [logging]
+      exporters: [elasticsearch, logging]
 
   telemetry:
     logs:

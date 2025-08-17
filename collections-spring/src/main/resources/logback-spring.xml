@@ -31,8 +31,7 @@
         </rollingPolicy>
     </appender>
 
-    <!-- OpenTelemetry Log Appender - Temporarily disabled until correct dependency found -->
-    <!--
+    <!-- OpenTelemetry Log Appender - Now enabled for unified observability -->
     <appender name="OTLP" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
         <includeKeyValuePairs>true</includeKeyValuePairs>
         <includeStackTrace>true</includeStackTrace>
@@ -42,7 +41,23 @@
         <captureLoggerContext>true</captureLoggerContext>
         <captureMdcAttributes>*</captureMdcAttributes>
     </appender>
-    -->
+
+    <!-- Logstash TCP Appender for direct log shipping to ELK -->
+    <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
+        <destination>logstash:5000</destination>
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp/>
+                <version/>
+                <logLevel/>
+                <message/>
+                <mdc/>
+                <arguments/>
+                <loggerName/>
+                <stackTrace/>
+            </providers>
+        </encoder>
+    </appender>
 
     <!-- JSON File Appender (optional) -->
     <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -68,7 +83,7 @@
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
-        <!-- <appender-ref ref="OTLP"/> -->
+        <appender-ref ref="LOGSTASH"/>
     </root>
 
     <!-- Application specific loggers -->
