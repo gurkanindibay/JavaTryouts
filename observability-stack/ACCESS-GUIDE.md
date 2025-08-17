@@ -74,13 +74,13 @@ To test the stack with your Java applications:
 ### Service Not Responding
 ```bash
 # Check container status
-docker-compose ps
+docker compose ps
 
 # Check logs
-docker-compose logs <service-name>
+docker compose logs <service-name>
 
 # Restart specific service
-docker-compose restart <service-name>
+docker compose restart <service-name>
 ```
 
 ### Want to Send Test Data?
@@ -102,5 +102,7 @@ All services are running correctly:
 - ✅ Tempo (trace storage)
 - ✅ ELK Stack (log storage)
 - ✅ OpenTelemetry Collector (data ingestion)
+
+Helper: there's a small bash helper in this folder (`manage-stack.sh`) and a Windows PowerShell helper (`manage-stack.ps1`) to simplify common operations (up/down/status/logs/smoke-test).
 
 **Next Step**: Start instrumenting your Java applications to send telemetry data to the collector!
