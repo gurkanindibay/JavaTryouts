@@ -444,6 +444,8 @@ otel.instrumentation.kafka.enabled=true
 ### 📝 **Logback Configuration**
 Create `logback-spring.xml`:
 
+Note: the example below is a simplified snippet to illustrate the important pieces. The project's actual, complete configuration lives at `collections-spring/src/main/resources/logback-spring.xml` — prefer that file for the canonical settings used by the application.
+
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
