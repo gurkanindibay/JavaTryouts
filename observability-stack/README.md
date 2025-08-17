@@ -111,6 +111,28 @@ This directory contains a complete observability stack using Docker Compose with
 - **Node Exporter**: System-level metrics collection
   ## Observability stack — comprehensive documentation
 
+Quick helper
+------------
+
+This folder contains a small bash helper script `manage-stack.sh` for convenience when working on Linux/macOS/WSL. It wraps common docker compose operations (up/down/status/logs) and can run the bundled smoke test. Example:
+
+```bash
+# Make executable once:
+chmod +x manage-stack.sh
+
+# Start the stack
+./manage-stack.sh up
+
+# View status
+./manage-stack.sh status
+
+# Run the smoke test
+./manage-stack.sh smoke-test
+```
+
+There is also a Windows PowerShell helper `manage-stack.ps1` for Windows users.
+
+
   This document explains the structure, responsibilities, protocols and configuration of the observability stack in this folder. It includes ASCII interaction diagrams, step-by-step integration notes for the `collections-spring` application, file locations for important configs, and troubleshooting tips.
 
   Checklist (requirements from your request):
