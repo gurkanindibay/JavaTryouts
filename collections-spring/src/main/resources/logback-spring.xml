@@ -42,7 +42,8 @@
         <captureMdcAttributes>*</captureMdcAttributes>
     </appender>
 
-    <!-- Logstash TCP Appender for direct log shipping to ELK -->
+    <!-- BACKUP: Logstash TCP Appender for direct log shipping to ELK (commented out for OTLP approach) -->
+    <!--
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
         <destination>logstash:5000</destination>
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -58,6 +59,7 @@
             </providers>
         </encoder>
     </appender>
+    -->
 
     <!-- JSON File Appender (optional) -->
     <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
@@ -79,11 +81,13 @@
         </rollingPolicy>
     </appender>
 
-    <!-- Root logger -->
+    <!-- Root logger - Using OTLP for unified observability, keeping FILE and CONSOLE for local debugging -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
-        <appender-ref ref="LOGSTASH"/>
+        <appender-ref ref="OTLP"/>
+        <!-- BACKUP: Uncomment line below and comment OTLP line above to use Logstash directly -->
+        <!-- <appender-ref ref="LOGSTASH"/> -->
     </root>
 
     <!-- Application specific loggers -->

@@ -32,6 +32,15 @@ processors:
     check_interval: 1s
     limit_mib: 512
 
+  # Transform processor to fix OpenTelemetry log compatibility with Elasticsearch
+  transform:
+    log_statements:
+      - context: resource
+        statements:
+          # Flatten nested executable object to string
+          - set(attributes["process.executable.path"], attributes["process.executable"]["path"]) where attributes["process.executable"] != nil
+          - delete_key(attributes, "process.executable") where attributes["process.executable"] != nil
+
 exporters:
   # Prometheus metrics export
   prometheus:
@@ -43,15 +52,18 @@ exporters:
     tls:
       insecure: true
 
-  # Elasticsearch logs export
+  # Elasticsearch logs export - Using data streams for better log management
   elasticsearch:
     endpoints: [http://elasticsearch:9200]
-    logs_index: "otel-logs"
+    logs_index: "logs-otel-default"
     mapping:
-      mode: "ecs"
+      mode: "none"
+    # Flatten resource and scope attributes for better compatibility
+    logs_dynamic_index:
+      enabled: false
 
-  # For debugging, we'll keep logging exporter too
-  logging:
+  # For debugging, we'll keep debug exporter too
+  debug:
     verbosity: detailed
 
 extensions:
@@ -66,20 +78,26 @@ service:
     traces:
       receivers: [otlp]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [otlp/tempo, logging]
+      exporters: [otlp/tempo, debug]
 
     metrics:
       receivers: [otlp, hostmetrics]
       processors: [memory_limiter, resourcedetection, batch]
-      exporters: [prometheus, logging]
+      exporters: [prometheus, debug]
 
     logs:
       receivers: [otlp]
-      processors: [memory_limiter, resourcedetection, batch]
-      exporters: [elasticsearch, logging]
+      processors: [memory_limiter, resourcedetection, transform, batch]
+      exporters: [elasticsearch, debug]
 
   telemetry:
     logs:
       level: "info"
     metrics:
-      address: 0.0.0.0:8888
+      level: basic
+      readers:
+        - pull:
+            exporter:
+              prometheus:
+                host: 0.0.0.0
+                port: 8888

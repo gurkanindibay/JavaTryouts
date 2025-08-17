@@ -2,5 +2,22 @@ server.host: "0.0.0.0"
 server.shutdownTimeout: "5s"
 elasticsearch.hosts: ['http://elasticsearch:9200']
 monitoring.ui.container.elasticsearch.enabled: true
-xpack.security.enabled: false
+
+# Security settings for Kibana 9.x
+# xpack.security.enabled: false  # Removed - not supported in Kibana 9.x
+xpack.security.encryptionKey: "something_at_least_32_characters_long"
 xpack.encryptedSavedObjects.encryptionKey: "something_at_least_32_characters_long"
+
+# Additional settings for Kibana 9.x compatibility
+xpack.reporting.encryptionKey: "something_at_least_32_characters_long"
+
+# Enable Fleet for integrations
+xpack.fleet.agents.elasticsearch.hosts: ["http://elasticsearch:9200"]
+
+# Logging configuration
+logging.appenders.default:
+  type: console
+  layout:
+    type: json
+logging.root:
+  level: info
