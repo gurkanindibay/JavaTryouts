@@ -109,49 +109,100 @@ This directory contains a complete observability stack using Docker Compose with
   - Provides PromQL query language for metrics analysis
 
 - **Node Exporter**: System-level metrics collection
-  ## Observability stack — comprehensive documentation
+  - Exposes CPU, memory, disk, and network metrics
+  - Runs on host system to collect machine-level statistics
 
-Quick helper
-------------
+- **cAdvisor**: Container metrics collection
+  - Monitors Docker container resource usage
+  - Provides container-specific performance metrics
 
-This folder contains a small bash helper script `manage-stack.sh` for convenience when working on Linux/macOS/WSL. It wraps common docker compose operations (up/down/status/logs) and can run the bundled smoke test. Example:
+### 🎯 **Visualization & Alerting**
+- **Grafana**: Unified dashboard and visualization platform
+  - Queries Prometheus for metrics, Tempo for traces, Elasticsearch for logs
+  - Pre-configured with datasources and sample dashboards
+  - Supports alerting and notification management
 
+- **Kibana**: Log exploration and analysis interface
+  - Provides advanced search and filtering for logs
+  - Creates visualizations and index management for Elasticsearch
+
+- **AlertManager**: Alert routing and notification hub
+  - Receives alerts from Prometheus rule evaluation
+  - Handles grouping, silencing, and routing to notification channels
+
+## 📋 Quick Start Guide
+
+### Prerequisites
+- Docker Desktop installed and running
+- At least 8GB RAM available
+- Git (to clone repository)
+
+### 🚀 **5-Minute Setup**
+
+1. **Start the stack:**
 ```bash
-# Make executable once:
-chmod +x manage-stack.sh
+# Navigate to observability-stack directory
+cd observability-stack
 
-# Start the stack
+# Start all services (Linux/macOS/WSL)
 ./manage-stack.sh up
 
-# View status
-./manage-stack.sh status
-
-# Run the smoke test
-./manage-stack.sh smoke-test
+# Or on Windows
+.\manage-stack.ps1 start
 ```
 
-There is also a Windows PowerShell helper `manage-stack.ps1` for Windows users.
+2. **Verify stack health:**
+```bash
+# Run health checks
+./manage-stack.sh smoke-test
 
+# Or on Windows
+.\validate-stack.ps1
+```
 
-  This document explains the structure, responsibilities, protocols and configuration of the observability stack in this folder. It includes ASCII interaction diagrams, step-by-step integration notes for the `collections-spring` application, file locations for important configs, and troubleshooting tips.
+3. **Access the services:** (see service URLs table below)
 
-  Checklist (requirements from your request):
-  - Create documentation for the observability stack (this file) — Done
-  - Provide interaction diagrams with protocols — Done (ASCII diagrams)
-  - Show all data flows including the `collections-spring` app — Done
-  - Describe responsibility of each item/component — Done
-  - Provide configuration of each element (file paths, snippets) — Done
-  - Add other useful items for comprehensibility (ports, common issues, troubleshooting, TLS/auth notes) — Done
+## 📊 Service Access URLs
 
-  If you want a different layout or additional diagrams (sequence diagrams, PlantUML, or network diagrams), tell me which format and I'll add them.
+| Service | URL | Default Credentials |
+|---------|-----|-------------------|
+| **Grafana** | http://localhost:3000 | admin / admin123 |
+| **Prometheus** | http://localhost:9090 | - |
+| **Kibana** | http://localhost:5601 | - |
+| **Elasticsearch** | http://localhost:9200 | - |
+| **Tempo** | http://localhost:3200/status | - |
+| **AlertManager** | http://localhost:9093 | - |
 
-  ## Quick architecture overview (ASCII)
+## 🛠️ Management Scripts
 
-  Top-level flow and protocols:
+This folder contains helper scripts for common operations:
 
-  Application(s)  ->  OpenTelemetry SDK/Appenders  ->  OpenTelemetry Collector  ->  (Prometheus / Tempo / Elasticsearch)
+- **`manage-stack.sh`** (Linux/macOS/WSL): Wraps docker compose operations and smoke testing
+- **`manage-stack.ps1`** (Windows): PowerShell equivalent with additional features
+- **`stack-smoke-test.sh`**: Validates all service endpoints after stack startup
+- **`validate-stack.ps1`**: Windows health validation script
 
-  Detailed ASCII diagram (showing protocols and ports):
+Example usage:
+```bash
+# Linux/macOS/WSL
+./manage-stack.sh status
+./manage-stack.sh smoke-test
+
+# Windows
+.\manage-stack.ps1 status
+.\validate-stack.ps1
+```
+
+## 📖 Architecture Overview
+
+This observability stack provides comprehensive monitoring through three main data types:
+
+**Top-level data flow:**
+```
+Application(s) → OpenTelemetry SDK/Appenders → OpenTelemetry Collector → Storage (Prometheus/Tempo/Elasticsearch)
+```
+
+**Detailed architecture diagram:**
 
                                 +-------------------------+
                                 |  collections-spring App |
@@ -162,35 +213,67 @@ There is also a Windows PowerShell helper `manage-stack.ps1` for Windows users.
                                             | OTLP gRPC / OTLP HTTP
                                             | (configured: otel.exporter.otlp.endpoint)
                                             v
-                          +-------------------------------------------+
-                          |         OpenTelemetry Collector         |
+                          +------------------------------------------+
+                          |         OpenTelemetry Collector          |
                           |  Receivers: OTLP(gRPC:4317, HTTP:4318)   |
                           |  HostMetrics receiver (scrape-like)      |
                           |  Processors: batch, resourcedetection    |
                           |  Exporters: prometheus(8889), otlp/tempo |
                           +---------+---------------+----------------+
                                     |               |
-                                    | Prometheus    | Tempo (OTLP -> Tempo storage)
-                                    | (pull)        | (OTLP gRPC to tempo:4317)
+                                    |               |
+                          Traces (OTLP)       Metrics (OTLP/Prometheus)
+                                    |               |
                                     v               v
                  +-------------------------+     +---------------+
-                 |      Prometheus        |     |     Tempo     |
-                 |  (9090) scrape targets |     |   (3200)      |
-                 |  - scrapes: node,     |     |   traces store|
-                 |    cadvisor, otel     |     |               |
-                 +-----------+------------+     +-------+-------+
+                 |          Tempo          |     |   Prometheus  |
+                 |       (traces store)    |     |    (9090)     |
+                 |        (3200)           |     | scrape targets|
+                 +-----------+-------------+     +-------+-------+
                              |                            |
                              |                            |
                              v                            v
                        +-----------+                +------------+
-                       | Grafana   |                | AlertManager|
-                       | (3000)    |                | (9093)      |
-                       +-----------+                +------------+
+                       |  Grafana  |<---queries-----| Prometheus |
+                       |  (3000)   |  (metrics & UI)|  (9090)    |
+                       +----+------+                +------------+
+                            |                             |
+                            | optional: query alerts      | alerts
+                            | (if Alertmanager datasource)| from rule eval
+                            v                             |
+                     +--------------+                     v
+                     |    (optional)|                    +------------+
+                     | Alertmanager |  <---------------- | Prometheus |
+                     |    (9093)    |      alerts route +------------+
+                     +--------------+
+datasources: Prometheus, Tempo, Elasticsearch
+(configured via `config/grafana/provisioning/datasources/datasources.yml`)
 
-  Logs path (separate):
+## 🔗 Data Flow Paths
 
-    App logs -> Logstash (beats/tcp/http) -> Elasticsearch -> Kibana
-    Protocols: beats (5044), tcp/udp (5000), http input (8080), ES HTTP API (9200)
+### **Logs Path:**
+```
+App logs → Logstash (beats/tcp/http) → Elasticsearch → Kibana
+Protocols: beats (5044), tcp/udp (5000), http input (8080), ES HTTP API (9200)
+```
+
+### **Metrics Path:**
+```
+App metrics → Prometheus scraping OR OTLP Collector → Prometheus → Grafana
+Protocols: HTTP scraping (/actuator/prometheus), OTLP (4317/4318)
+```
+
+### **Traces Path:**
+```
+App traces → OTLP Collector → Tempo → Grafana
+Protocols: OTLP gRPC/HTTP (4317/4318)
+```
+
+### **Alerts Path:**
+```
+Prometheus rule evaluation → AlertManager → Notification channels
+Grafana → Prometheus (queries) OR AlertManager (alert display)
+```
 
   ## Component responsibilities (short)
   - OpenTelemetry Collector (`config/otel-collector/otel-collector-config.yml`): central receiver for OTLP (traces/metrics/logs), processors (batching, memory limits, transforms), and exporters to Prometheus/Tempo/Elastic.
@@ -292,9 +375,9 @@ There is also a Windows PowerShell helper `manage-stack.ps1` for Windows users.
      - `server.port=8081` (default used by Prometheus scrape config)
   3. Run the stack with Docker Compose:
 
-  ```powershell
+  ```bash
   # from observability-stack directory
-  docker-compose up -d
+  docker compose up -d
   ```
 
   4. Start the Spring app locally (or in a container attached to the `observability` network). If running locally on the host, Prometheus uses `host.docker.internal:8081` to scrape metrics. If you run the app in a container, adjust `prometheus.yml` to point at the container name.
@@ -330,14 +413,14 @@ There is also a Windows PowerShell helper `manage-stack.ps1` for Windows users.
       - Automated fix: The stack now includes `init-tempo.sh` (mounted into the tempo container) which fixes ownership and starts Tempo. This script is used as the `entrypoint` for the `tempo` service so the fix runs automatically on container start.
     - Manual fallback (run from `observability-stack` directory):
 
-  ```powershell
+  ```bash
   # Ensure the tempo volume is owned by the tempo user (uid 10001)
   docker run --rm -v observability-stack_tempo_data:/data alpine sh -c "chown -R 10001:10001 /data && echo 'chown done'"
   ```
 
     - After either fix, restart the service:
 
-  ```powershell
+  ```bash
   docker compose restart tempo
   docker compose logs tempo --tail=100
   ```
@@ -351,340 +434,36 @@ There is also a Windows PowerShell helper `manage-stack.ps1` for Windows users.
   ## Backup / maintenance
   - Backup volumes are supported in `manage-stack.ps1` (backup subcommand). Check `manage-stack.ps1` for how it archives volumes to `./backup/`.
 
-  ## Useful commands
+  ## 🔧 Useful Commands
   From `observability-stack` directory:
 
-  ```powershell
-  # Start
-  docker-compose up -d
+  ```bash
+  # Start stack
+  docker compose up -d
 
-  # Stop
-  docker-compose down
+  # Stop stack  
+  docker compose down
 
-  # View logs
-  docker-compose logs -f grafana
+  # View logs for specific service
+  docker compose logs -f grafana
 
   # Check collector health
   curl http://localhost:13133
+
+  # Run smoke test (validates all endpoints)
+  ./stack-smoke-test.sh
+
+  # Or use management helpers
+  ./manage-stack.sh status
+  ./manage-stack.sh smoke-test
   ```
 
-  ## Next steps / enhancements I recommend
-  - Add self-monitoring dashboards for the observability stack in Grafana.
-  - Enable TLS and basic auth for production deployments.
-  - Configure ILM for Elasticsearch indices and external long-term storage for Prometheus (remote_write) and Tempo.
-  - Add sample dashboards and alerting rules in `config/grafana/provisioning` and `config/prometheus/rules` respectively.
-
-  If you'd like, I can also:
-  - Generate a PlantUML sequence diagram for the flows.
-  - Create a small README for `collections-spring` showing how to run it in a container attached to the `observability` network and adjust `prometheus.yml` accordingly.
-
   ---
-  Requirements coverage: all checklist items above are implemented in this file. If you want any section expanded (for example full example dashboards or a visual sequence diagram), tell me which one and I will add it.
 
-    </dependency>
-    
-    <!-- Micrometer Prometheus registry -->
-    <dependency>
-        <groupId>io.micrometer</groupId>
-        <artifactId>micrometer-registry-prometheus</artifactId>
-    </dependency>
-    
-    <!-- OpenTelemetry Spring Boot Starter -->
-    <dependency>
-        <groupId>io.opentelemetry.instrumentation</groupId>
-        <artifactId>opentelemetry-spring-boot-starter</artifactId>
-        <version>1.29.0-alpha</version>
-    </dependency>
-    
-    <!-- OpenTelemetry OTLP Exporter -->
-    <dependency>
-        <groupId>io.opentelemetry</groupId>
-        <artifactId>opentelemetry-exporter-otlp</artifactId>
-    </dependency>
-    
-    <!-- Logback OpenTelemetry Appender -->
-    <dependency>
-        <groupId>io.opentelemetry.instrumentation</groupId>
-        <artifactId>opentelemetry-logback-appender-1.0</artifactId>
-        <version>1.29.0-alpha</version>
-    </dependency>
-</dependencies>
-```
+## 📚 Additional Resources
 
-### ⚙️ **Application Properties**
-Add to `application.properties`:
+- **Java Integration Guide**: `java-instrumentation-guide.md` - Detailed Java/Spring Boot setup
+- **Access Guide**: `ACCESS-GUIDE.md` - Service access and authentication details
+- **Configuration Files**: `config/` directory contains all service configurations
 
-```properties
-# Application Information
-spring.application.name=my-java-service
-management.endpoints.web.exposure.include=health,metrics,prometheus,info
-management.endpoint.prometheus.enabled=true
-management.metrics.export.prometheus.enabled=true
-
-# OpenTelemetry Configuration
-otel.service.name=${spring.application.name}
-otel.service.version=@project.version@
-otel.service.instance.id=${spring.application.name}-${random.uuid}
-otel.resource.attributes=environment=development,team=backend
-
-# OTLP Exporter (to OpenTelemetry Collector)
-otel.exporter.otlp.endpoint=http://localhost:4317
-otel.exporter.otlp.protocol=grpc
-otel.traces.exporter=otlp
-otel.metrics.exporter=otlp,prometheus
-otel.logs.exporter=otlp
-
-# Instrumentation
-otel.instrumentation.spring-webmvc.enabled=true
-otel.instrumentation.jdbc.enabled=true
-otel.instrumentation.hikaricp.enabled=true
-otel.instrumentation.kafka.enabled=true
-```
-
-### 📝 **Logback Configuration**
-Create `logback-spring.xml`:
-
-Note: the example below is a simplified snippet to illustrate the important pieces. The project's actual, complete configuration lives at `collections-spring/src/main/resources/logback-spring.xml` — prefer that file for the canonical settings used by the application.
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
-    
-    <!-- Console Appender -->
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level [%X{traceId},%X{spanId}] %logger{36} - %msg%n</pattern>
-        </encoder>
-    </appender>
-    
-    <!-- OpenTelemetry Appender -->
-    <appender name="OTLP" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
-        <captureExperimentalAttributes>true</captureExperimentalAttributes>
-        <captureMdcAttributes>*</captureMdcAttributes>
-    </appender>
-    
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="OTLP"/>
-    </root>
-</configuration>
-```
-
-### 🎯 **Prometheus Configuration Update**
-Add your Java application to `config/prometheus/prometheus.yml`:
-
-```yaml
-scrape_configs:
-  - job_name: 'my-java-service'
-    static_configs:
-      - targets: ['my-java-service:8080']  # Adjust host and port
-    metrics_path: '/actuator/prometheus'
-    scrape_interval: 10s
-```
-
-## 🔌 .NET Core Application Integration
-
-### 📦 **NuGet Packages**
-Add to your `.csproj`:
-
-```xml
-<PackageReference Include="OpenTelemetry" Version="1.5.1" />
-<PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.5.1" />
-<PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.5.1-beta.1" />
-<PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.5.1-beta.1" />
-<PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" Version="1.5.1-beta.1" />
-<PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.5.1" />
-<PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.5.1-rc.1" />
-```
-
-### ⚙️ **Program.cs Configuration**
-```csharp
-using OpenTelemetry.Logs;
-using OpenTelemetry.Metrics;
-using OpenTelemetry.Resources;
-using OpenTelemetry.Trace;
-
-var builder = WebApplication.CreateBuilder(args);
-
-// Configure OpenTelemetry
-builder.Services.AddOpenTelemetry()
-    .WithTracing(tracerProviderBuilder =>
-    {
-        tracerProviderBuilder
-            .AddSource("MyDotNetService")
-            .SetResourceBuilder(ResourceBuilder.CreateDefault()
-                .AddService("my-dotnet-service", "1.0.0")
-                .AddAttributes(new Dictionary<string, object>
-                {
-                    ["environment"] = "development",
-                    ["team"] = "backend"
-                }))
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddSqlClientInstrumentation()
-            .AddOtlpExporter(options =>
-            {
-                options.Endpoint = new Uri("http://localhost:4317");
-                options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
-            });
-    })
-    .WithMetrics(meterProviderBuilder =>
-    {
-        meterProviderBuilder
-            .SetResourceBuilder(ResourceBuilder.CreateDefault()
-                .AddService("my-dotnet-service", "1.0.0"))
-            .AddAspNetCoreInstrumentation()
-            .AddHttpClientInstrumentation()
-            .AddPrometheusExporter()
-            .AddOtlpExporter(options =>
-            {
-                options.Endpoint = new Uri("http://localhost:4317");
-                options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
-            });
-    });
-
-// Configure Logging
-builder.Logging.AddOpenTelemetry(logging =>
-{
-    logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
-        .AddService("my-dotnet-service", "1.0.0"));
-    logging.AddOtlpExporter(options =>
-    {
-        options.Endpoint = new Uri("http://localhost:4317");
-        options.Protocol = OpenTelemetry.Exporter.OtlpExportProtocol.Grpc;
-    });
-});
-
-var app = builder.Build();
-
-// Add Prometheus metrics endpoint
-app.MapPrometheusScrapingEndpoint();
-
-app.Run();
-```
-
-### ⚙️ **appsettings.json Configuration**
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "OpenTelemetry": {
-    "ServiceName": "my-dotnet-service",
-    "ServiceVersion": "1.0.0"
-  }
-}
-```
-
-### 🎯 **Prometheus Configuration Update**
-Add your .NET application to `config/prometheus/prometheus.yml`:
-
-```yaml
-scrape_configs:
-  - job_name: 'my-dotnet-service'
-    static_configs:
-      - targets: ['my-dotnet-service:5000']  # Adjust host and port
-    metrics_path: '/metrics'
-    scrape_interval: 10s
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Docker Desktop installed and running
-- At least 8GB RAM available
-- PowerShell (for Windows scripts)
-
-### 1. Start the Stack
-
-```powershell
-# Start all services
-docker-compose up -d
-
-# Check status
-.\manage-stack.ps1 status
-
-# Validate health
-.\validate-stack.ps1
-```
-
-### 2. Access the Services
-
-| Service | URL | Default Credentials |
-|---------|-----|-------------------|
-| **Grafana** | http://localhost:3000 | admin / admin123 |
-| **Prometheus** | http://localhost:9090 | - |
-| **Kibana** | http://localhost:5601 | - |
-| **Elasticsearch** | http://localhost:9200 | - |
-| **Tempo** | http://localhost:3200/status | - |
-| **AlertManager** | http://localhost:9093 | - |
-
-### 3. Send Test Data
-
-```bash
-# Test metrics endpoint (if your app is running)
-curl http://localhost:8080/actuator/prometheus
-
-# Test OTLP endpoint
-curl -X POST http://localhost:4318/v1/traces \
-  -H "Content-Type: application/json" \
-  -d '{"resourceSpans":[]}'
-```
-
-## 🛠️ Management Commands
-
-```powershell
-# Start/Stop Services
-.\manage-stack.ps1 start
-.\manage-stack.ps1 stop
-
-# Restart specific service
-.\manage-stack.ps1 restart -Service prometheus
-
-# View logs
-.\manage-stack.ps1 logs -Service grafana -Follow
-
-# Validate stack health
-.\validate-stack.ps1
-
-# Cleanup (removes all data)
-.\manage-stack.ps1 clean
-```
-
-## 🏭 Production Considerations
-
-### Scaling
-- Use external storage for Elasticsearch (AWS OpenSearch, etc.)
-- Implement Prometheus federation for large environments
-- Use Tempo's distributed storage backend
-- Set up Grafana in HA mode
-
-### Security
-- Enable authentication in all services
-- Use TLS certificates
-- Implement network segmentation
-- Regular security updates
-
-### Retention Policies
-- Prometheus: 15 days (configurable)
-- Elasticsearch: Configure ILM policies
-- Tempo: Configure retention in tempo.yml
-
-### Monitoring the Monitoring Stack
-- Enable self-monitoring for all components
-- Set up external health checks
-- Monitor resource usage
-
-## 📈 Next Steps
-
-1. **Instrument your applications** with OpenTelemetry
-2. **Create custom dashboards** in Grafana
-3. **Set up alerting** via email/Slack
-4. **Implement log correlation** with trace IDs
-5. **Scale components** based on your load
-
-For more detailed configuration, check the individual config files in the `config/` directory.
+For questions or enhancements, check the individual config files in the `config/` directory or refer to the troubleshooting section above.
